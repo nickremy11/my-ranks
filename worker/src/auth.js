@@ -62,7 +62,7 @@ export async function handleLogin(request, env, corsHeaders) {
 
   const { cookie } = await createSession(user.id, env);
   const headers = { ...corsHeaders, 'Content-Type': 'application/json;charset=UTF-8', 'Set-Cookie': cookie };
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+  return new Response(JSON.stringify({ ok: true, user: { user_id: user.id, email: user.email, name: user.name || null } }), { status: 200, headers });
 }
 
 export async function handleLogout(request, env, corsHeaders) {
