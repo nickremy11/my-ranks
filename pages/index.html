@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Rankings — FF Historian</title>
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<style>
+:root {
+  --cream:       #f5ead6;
+  --parchment:   #e8d5b0;
+  --brown-dark:  #2a1a0e;
+  --brown-mid:   #5c3d1e;
+  --brown-light: #8b5e2e;
+  --green:       #2d4a1e;
+  --green-light: #4a7a2f;
+  --red:         #8b1a1a;
+  --gold:        #c9962a;
+  --gold-light:  #e8b84b;
+  --ink:         #1a1008;
+  --pos-qb:      #7a1a1a;
+  --pos-rb:      #1a4a1a;
+  --pos-wr:      #1a2a6a;
+  --pos-te:      #5a1a7a;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'Crimson Text', Georgia, serif;
+  min-height: 100vh;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9962a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.25;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
+}
+.page-wrap { position: relative; z-index: 1; }
+
+/* ── Banner ── */
+.banner { background: var(--green); border-bottom: 6px double var(--gold); position: relative; overflow: hidden; }
+.banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(0,0,0,0.06) 10px, rgba(0,0,0,0.06) 11px);
+}
+.banner-inner {
+  position: relative; z-index: 1;
+  max-width: 1600px; margin: 0 auto;
+  padding: 18px 24px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.banner-left { flex: 1; }
+.banner-back {
+  font-family: 'Rye', serif; font-size: 0.52rem; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--gold-light); text-decoration: none;
+  opacity: 0.7; display: inline-block; margin-bottom: 6px;
+}
+.banner-back:hover { opacity: 1; }
+.banner h1 { font-family: 'Rye', serif; font-size: clamp(1rem, 2.5vw, 1.6rem); color: var(--cream); text-shadow: 2px 2px 0 rgba(0,0,0,0.4); line-height: 1.1; }
+.banner h1 span { color: var(--gold-light); }
+.banner-sub { margin-top: 4px; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.8rem; color: var(--parchment); opacity: 0.75; }
+#auth-chip { display: flex; align-items: center; }
+
+/* ── Main layout ── */
+.content { max-width: 1600px; margin: 0 auto; padding: 20px 16px 60px; }
+
+/* ── Auth gate ── */
+.auth-gate {
+  margin: 80px auto; max-width: 480px;
+  background: var(--brown-dark); border: 2px solid var(--gold); border-radius: 2px;
+  padding: 40px 36px; text-align: center;
+}
+.auth-gate h2 { font-family: 'Rye', serif; font-size: 1.1rem; color: var(--gold-light); margin-bottom: 12px; }
+.auth-gate p { font-family: 'Crimson Text', serif; color: var(--parchment); font-size: 1rem; margin-bottom: 20px; }
+.auth-gate .btn { display: inline-block; }
+
+/* ── Buttons ── */
+.btn {
+  font-family: 'Rye', serif; font-size: 0.52rem; letter-spacing: 0.16em; text-transform: uppercase;
+  border: 2px solid var(--gold); background: var(--green); color: var(--gold-light);
+  padding: 8px 16px; cursor: pointer; border-radius: 2px; transition: background 0.15s, color 0.15s;
+  text-decoration: none; white-space: nowrap;
+}
+.btn:hover { background: var(--gold); color: var(--brown-dark); }
+.btn-sm { font-size: 0.46rem; padding: 5px 10px; }
+.btn-danger { border-color: var(--red); background: transparent; color: var(--red); }
+.btn-danger:hover { background: var(--red); color: var(--cream); }
+.btn-ghost { background: transparent; color: var(--brown-light); border-color: var(--brown-mid); }
+.btn-ghost:hover { background: var(--brown-mid); color: var(--cream); border-color: var(--brown-mid); }
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--parchment);
+}
+.toolbar-title { font-family: 'Rye', serif; font-size: 0.9rem; color: var(--brown-dark); flex: 1; }
+
+/* ── Picks panel ── */
+.picks-panel {
+  background: rgba(42,26,14,0.06); border: 1px solid var(--parchment);
+  border-radius: 2px; padding: 12px 14px; margin-bottom: 16px;
+}
+.picks-panel-label {
+  font-family: 'Rye', serif; font-size: 0.5rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--brown-light); margin-bottom: 8px;
+}
+#unassigned-picks {
+  display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px;
+}
+.picks-empty-hint {
+  font-family: 'Crimson Text', serif; font-style: italic; font-size: 0.82rem;
+  color: var(--brown-light); opacity: 0.6; align-self: center;
+}
+
+/* ── Pick badge ── */
+.pick-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--brown-mid); border: 1px solid var(--brown-light);
+  color: var(--cream); border-radius: 2px;
+  font-family: 'Crimson Text', serif; font-size: 0.78rem; font-weight: 600;
+  padding: 3px 7px; cursor: grab; user-select: none;
+  transition: background 0.12s;
+}
+.pick-badge:hover { background: var(--brown-light); }
+.pick-badge.sortable-drag { opacity: 0.5; }
+.pick-badge .pick-remove {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.45); font-size: 0.72rem; line-height: 1; padding: 0;
+  transition: color 0.12s;
+}
+.pick-badge .pick-remove:hover { color: var(--cream); }
+
+/* ── Grid ── */
+.grid-header {
+  display: grid;
+  grid-template-columns: 90px 150px 1fr 1fr 1fr 1fr;
+  gap: 0; margin-bottom: 0;
+  border: 2px solid var(--brown-mid); border-bottom: none;
+  border-radius: 2px 2px 0 0; overflow: hidden;
+}
+.grid-header-cell {
+  background: var(--green); color: var(--gold-light);
+  font-family: 'Rye', serif; font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 10px 8px; text-align: center; border-right: 1px solid rgba(255,255,255,0.1);
+}
+.grid-header-cell:last-child { border-right: none; }
+.grid-header-cell.pos-qb { color: #ffaaaa; }
+.grid-header-cell.pos-rb { color: #aaffaa; }
+.grid-header-cell.pos-wr { color: #aaaaff; }
+.grid-header-cell.pos-te { color: #ddaaff; }
+
+#tier-grid {
+  border: 2px solid var(--brown-mid); border-top: none;
+  border-radius: 0 0 2px 2px; overflow: hidden;
+}
+
+.tier-row {
+  display: grid;
+  grid-template-columns: 90px 150px 1fr 1fr 1fr 1fr;
+  border-bottom: 2px solid var(--brown-mid);
+  min-height: 80px;
+}
+.tier-row:last-child { border-bottom: none; }
+
+/* ── Tier info cell ── */
+.tier-info {
+  background: var(--brown-dark); padding: 10px 8px;
+  border-right: 1px solid var(--brown-mid);
+  display: flex; flex-direction: column; justify-content: space-between; gap: 4px;
+}
+.tier-label {
+  font-family: 'Rye', serif; font-size: 0.58rem; letter-spacing: 0.12em;
+  color: var(--gold-light); text-transform: uppercase;
+}
+.tier-avg {
+  font-family: 'Crimson Text', serif; font-size: 0.75rem; color: var(--parchment);
+  opacity: 0.7; font-style: italic;
+}
+.tier-remove {
+  background: none; border: none; cursor: pointer; color: var(--brown-light);
+  font-size: 0.7rem; padding: 0; line-height: 1; align-self: flex-end;
+  transition: color 0.12s;
+}
+.tier-remove:hover { color: var(--red); }
+
+/* ── Picks cell ── */
+.picks-cell {
+  background: rgba(42,26,14,0.04); border-right: 1px solid var(--brown-mid);
+  padding: 8px; min-height: 80px;
+}
+.picks-cell-list {
+  display: flex; flex-direction: column; gap: 4px; min-height: 60px;
+}
+
+/* ── Position cell ── */
+.pos-cell {
+  border-right: 1px solid rgba(92,61,30,0.3);
+  padding: 6px; min-height: 80px; background: rgba(245,234,214,0.5);
+}
+.pos-cell:nth-child(odd) { background: rgba(232,213,176,0.35); }
+.pos-cell:last-child { border-right: none; }
+.player-list {
+  display: flex; flex-direction: column; gap: 4px; min-height: 60px;
+}
+
+/* ── Player card ── */
+.player-card {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--cream); border: 1px solid var(--parchment);
+  border-radius: 2px; padding: 5px 7px; cursor: grab;
+  user-select: none; transition: box-shadow 0.12s, border-color 0.12s;
+}
+.player-card:hover { border-color: var(--gold); box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+.player-card.sortable-ghost { opacity: 0.35; background: var(--parchment); }
+.player-card.sortable-drag { box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+.pos-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.pos-dot.QB { background: var(--pos-qb); }
+.pos-dot.RB { background: var(--pos-rb); }
+.pos-dot.WR { background: var(--pos-wr); }
+.pos-dot.TE { background: var(--pos-te); }
+.player-name {
+  font-family: 'Crimson Text', serif; font-size: 0.85rem; font-weight: 600;
+  color: var(--ink); flex: 1; line-height: 1.2;
+}
+.player-team {
+  font-family: 'Crimson Text', serif; font-size: 0.7rem; color: var(--brown-light);
+  flex-shrink: 0;
+}
+.player-remove {
+  background: none; border: none; cursor: pointer;
+  color: rgba(0,0,0,0.2); font-size: 0.72rem; padding: 0; line-height: 1;
+  transition: color 0.12s; flex-shrink: 0;
+}
+.player-remove:hover { color: var(--red); }
+
+/* ── Add tier button ── */
+.add-tier-wrap { margin-top: 12px; text-align: left; }
+
+/* ── Modals ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-card {
+  background: var(--brown-dark); border: 2px solid var(--gold);
+  border-radius: 2px; padding: 32px 36px; width: 460px;
+  max-width: calc(100vw - 32px); max-height: 90vh; overflow-y: auto;
+  box-shadow: 8px 8px 0 rgba(0,0,0,0.35); position: relative;
+}
+.modal-title {
+  font-family: 'Rye', serif; font-size: 0.9rem; color: var(--gold-light);
+  margin-bottom: 20px; letter-spacing: 0.08em;
+}
+.modal-close {
+  position: absolute; top: 14px; right: 16px; background: none; border: none;
+  cursor: pointer; color: var(--brown-light); font-size: 1.1rem; line-height: 1;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: var(--gold); }
+.modal-label {
+  font-family: 'Rye', serif; font-size: 0.5rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 6px;
+}
+.modal-field {
+  width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--brown-mid);
+  color: var(--cream); font-family: 'Crimson Text', serif; font-size: 1rem;
+  padding: 8px 12px; border-radius: 2px; outline: none; transition: border-color 0.15s;
+  margin-bottom: 14px;
+}
+.modal-field:focus { border-color: var(--gold); }
+.modal-field option { background: var(--brown-dark); }
+.modal-hint {
+  font-family: 'Crimson Text', serif; font-size: 0.82rem; color: var(--brown-light);
+  font-style: italic; margin-bottom: 14px;
+}
+.modal-err {
+  display: none; background: rgba(139,26,26,0.25); border: 1px solid var(--red);
+  color: var(--cream); font-family: 'Crimson Text', serif; font-style: italic;
+  font-size: 0.88rem; padding: 8px 12px; border-radius: 2px; margin-bottom: 14px;
+}
+.modal-info {
+  display: none; background: rgba(45,74,30,0.25); border: 1px solid var(--green-light);
+  color: var(--cream); font-family: 'Crimson Text', serif;
+  font-size: 0.88rem; padding: 8px 12px; border-radius: 2px; margin-bottom: 14px;
+}
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+
+/* ── Notifications ── */
+.notif {
+  position: fixed; bottom: 20px; right: 20px; z-index: 300;
+  background: var(--green); border: 1px solid var(--gold); color: var(--cream);
+  font-family: 'Crimson Text', serif; font-size: 0.88rem; padding: 10px 16px;
+  border-radius: 2px; box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+  opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.notif.show { opacity: 1; transform: translateY(0); }
+.notif.err { background: var(--red); }
+
+/* ── Hidden ── */
+.hidden { display: none !important; }
+
+/* ── Responsive hint ── */
+@media (max-width: 900px) {
+  .grid-header, .tier-row {
+    grid-template-columns: 70px 120px 1fr 1fr 1fr 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- Banner -->
+<header class="banner">
+  <div class="banner-inner">
+    <div class="banner-left">
+      <a href="https://ffhistorian.com" class="banner-back">&#8592; FF Historian</a>
+      <h1>My <span>Rankings</span></h1>
+      <div class="banner-sub">Dynasty Tier Board — Drag &amp; Drop</div>
+    </div>
+    <div id="auth-chip"></div>
+  </div>
+</header>
+
+<main class="content">
+
+  <!-- Auth gate (shown when not logged in) -->
+  <div id="auth-gate" class="auth-gate hidden">
+    <h2>Sign In to Continue</h2>
+    <p>Your rankings are saved to your FF Historian account. Sign in to view and edit your tier board.</p>
+    <a href="#" class="btn" onclick="SharedAuth.openModal();return false;">Sign In</a>
+  </div>
+
+  <!-- App (shown when logged in) -->
+  <div id="app" class="hidden">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="toolbar-title">Tier Board</span>
+      <button class="btn btn-sm btn-ghost" id="import-btn">&#8593; Import CSV</button>
+      <button class="btn btn-sm btn-ghost" id="add-player-btn">+ Add Player</button>
+      <button class="btn btn-sm btn-ghost" id="add-tier-btn-top">+ Add Tier</button>
+    </div>
+
+    <!-- Unassigned picks panel -->
+    <div class="picks-panel">
+      <div class="picks-panel-label">Unassigned Draft Picks — drag into a tier row</div>
+      <div id="unassigned-picks"></div>
+    </div>
+
+    <!-- Grid header -->
+    <div class="grid-header">
+      <div class="grid-header-cell">Tier</div>
+      <div class="grid-header-cell">Picks</div>
+      <div class="grid-header-cell pos-qb">QB</div>
+      <div class="grid-header-cell pos-rb">RB</div>
+      <div class="grid-header-cell pos-wr">WR</div>
+      <div class="grid-header-cell pos-te">TE</div>
+    </div>
+
+    <!-- Tier rows rendered here -->
+    <div id="tier-grid"></div>
+
+    <div class="add-tier-wrap">
+      <button class="btn btn-sm btn-ghost" id="add-tier-btn-bottom">+ Add Tier</button>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<!-- Import CSV Modal -->
+<div id="import-modal" class="modal-overlay">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('import-modal')">&times;</button>
+    <div class="modal-title">Import CSV</div>
+    <p class="modal-hint">
+      Expected columns: <strong>player_name, team, position, tier</strong> (or player, pos, etc. — headers are matched flexibly).<br>
+      Position must be QB, RB, WR, or TE. This will replace all existing rankings.
+    </p>
+    <label class="modal-label">Choose CSV File</label>
+    <input type="file" id="csv-file" accept=".csv,.txt" class="modal-field" style="padding:6px 10px; cursor:pointer;" />
+    <div class="modal-info" id="import-info"></div>
+    <div class="modal-err" id="import-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('import-modal')">Cancel</button>
+      <button class="btn btn-sm" id="import-confirm-btn" disabled>Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Player Modal -->
+<div id="add-player-modal" class="modal-overlay">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('add-player-modal')">&times;</button>
+    <div class="modal-title">Add Player</div>
+    <label class="modal-label">Player Name</label>
+    <input type="text" id="ap-name" class="modal-field" placeholder="e.g. Josh Allen" />
+    <label class="modal-label">Team (optional)</label>
+    <input type="text" id="ap-team" class="modal-field" placeholder="e.g. BUF" maxlength="5" />
+    <label class="modal-label">Position</label>
+    <select id="ap-pos" class="modal-field">
+      <option value="">— select —</option>
+      <option value="QB">QB</option>
+      <option value="RB">RB</option>
+      <option value="WR">WR</option>
+      <option value="TE">TE</option>
+    </select>
+    <label class="modal-label">Tier</label>
+    <select id="ap-tier" class="modal-field"></select>
+    <div class="modal-err" id="ap-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-player-modal')">Cancel</button>
+      <button class="btn btn-sm" onclick="submitAddPlayer()">Add Player</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notification toast -->
+<div class="notif" id="notif"></div>
+
+<script src="shared-auth.js"></script>
+<script>
+(function () {
+'use strict';
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const ALL_PICKS = [
+  'Early 2027 1st', 'Mid 2027 1st', 'Playoff 2027 1st',
+  'Early 2027 2nd', 'Mid 2027 2nd', 'Playoff 2027 2nd',
+  '2027 3rd',
+  '2028 1st', '2028 2nd',
+  '2029 1st', '2029 2nd',
+];
+
+const POSITIONS = ['QB', 'RB', 'WR', 'TE'];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let state = {
+  rankings: [],   // { player_name, team, position, tier }
+  picks: [],      // { pick_name, tier }
+  maxTier: 1,
+};
+let sortables = [];
+let pendingImport = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showNotif(msg, isErr = false) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.classList.toggle('err', isErr);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ── Average rank calculation ──────────────────────────────────────────────────
+
+function calcAvgRanks() {
+  const tiers = getTierList();
+  const result = {};
+  let rank = 1;
+  for (const tier of tiers) {
+    const count = state.rankings.filter(r => r.tier === tier).length;
+    if (count === 0) {
+      result[tier] = null;
+    } else {
+      const first = rank;
+      const last  = rank + count - 1;
+      result[tier] = count === 1 ? first : Math.round((first + last) / 2);
+      rank += count;
+    }
+  }
+  return result;
+}
+
+function getTierList() {
+  const fromData = state.rankings.map(r => r.tier);
+  const all = new Set([...fromData]);
+  for (let t = 1; t <= state.maxTier; t++) all.add(t);
+  return [...all].sort((a, b) => a - b);
+}
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+
+async function api(method, path, body) {
+  const opts = {
+    method,
+    credentials: 'include',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
+
+async function loadData() {
+  const d = await api('GET', '/api/myranks/data');
+  state.rankings = d.rankings || [];
+  state.picks    = d.picks    || [];
+  state.maxTier  = Math.max(1, ...state.rankings.map(r => r.tier));
+}
+
+// ── Destroy sortables ─────────────────────────────────────────────────────────
+
+function destroySortables() {
+  sortables.forEach(s => s.destroy());
+  sortables = [];
+}
+
+// ── Grid rendering ────────────────────────────────────────────────────────────
+
+function renderGrid() {
+  destroySortables();
+
+  const tiers   = getTierList();
+  const avgRanks = calcAvgRanks();
+  const grid     = document.getElementById('tier-grid');
+  grid.innerHTML  = '';
+
+  for (const tier of tiers) {
+    grid.appendChild(buildTierRow(tier, avgRanks[tier]));
+  }
+
+  // Unassigned picks panel
+  renderUnassignedPicks();
+
+  // Init sortables on all player lists and pick lists
+  initSortables();
+
+  // Populate tier dropdown in Add Player modal
+  populateTierDropdown();
+}
+
+function buildTierRow(tier, avgRank) {
+  const row = document.createElement('div');
+  row.className = 'tier-row';
+  row.dataset.tier = tier;
+
+  // Tier info cell
+  const infoCell = document.createElement('div');
+  infoCell.className = 'tier-info';
+  const canRemove = state.rankings.filter(r => r.tier === tier).length === 0 &&
+                    state.picks.filter(p => p.tier === tier).length === 0;
+  infoCell.innerHTML = `
+    <div>
+      <div class="tier-label">Tier ${tier}</div>
+      <div class="tier-avg">${avgRank !== null ? 'Avg: ' + avgRank : 'empty'}</div>
+    </div>
+    ${canRemove ? `<button class="tier-remove" title="Remove tier" onclick="removeTier(${tier})">&#x2715;</button>` : ''}
+  `;
+  row.appendChild(infoCell);
+
+  // Picks cell
+  const picksCell = document.createElement('div');
+  picksCell.className = 'picks-cell';
+  const pickList = document.createElement('div');
+  pickList.className = 'picks-cell-list';
+  pickList.dataset.tier = tier;
+  pickList.dataset.type = 'picks';
+  const tierPicks = state.picks.filter(p => p.tier === tier);
+  for (const pk of tierPicks) {
+    pickList.appendChild(buildPickBadge(pk.pick_name));
+  }
+  picksCell.appendChild(pickList);
+  row.appendChild(picksCell);
+
+  // Position cells
+  for (const pos of POSITIONS) {
+    const cell = document.createElement('div');
+    cell.className = 'pos-cell';
+    const list = document.createElement('div');
+    list.className = 'player-list';
+    list.dataset.tier = tier;
+    list.dataset.pos  = pos;
+    list.dataset.type = 'players';
+    const players = state.rankings.filter(r => r.tier === tier && r.position === pos);
+    for (const p of players) {
+      list.appendChild(buildPlayerCard(p));
+    }
+    cell.appendChild(list);
+    row.appendChild(cell);
+  }
+
+  return row;
+}
+
+function buildPlayerCard(p) {
+  const card = document.createElement('div');
+  card.className = 'player-card';
+  card.dataset.playerName = p.player_name;
+  card.innerHTML = `
+    <div class="pos-dot ${esc(p.position)}"></div>
+    <div class="player-name">${esc(p.player_name)}</div>
+    ${p.team ? `<div class="player-team">${esc(p.team)}</div>` : ''}
+    <button class="player-remove" title="Remove player" onclick="removePlayer(${JSON.stringify(p.player_name)})">&#x2715;</button>
+  `;
+  return card;
+}
+
+function buildPickBadge(pickName) {
+  const badge = document.createElement('div');
+  badge.className = 'pick-badge';
+  badge.dataset.pickName = pickName;
+  badge.innerHTML = `
+    ${esc(pickName)}
+    <button class="pick-remove" title="Unassign pick" onclick="unassignPick(${JSON.stringify(pickName)})">&#x2715;</button>
+  `;
+  return badge;
+}
+
+function renderUnassignedPicks() {
+  const assigned = new Set(state.picks.map(p => p.pick_name));
+  const unassigned = ALL_PICKS.filter(pk => !assigned.has(pk));
+  const container = document.getElementById('unassigned-picks');
+  container.innerHTML = '';
+  if (unassigned.length === 0) {
+    container.innerHTML = '<span class="picks-empty-hint">All picks assigned</span>';
+    return;
+  }
+  for (const pk of unassigned) {
+    container.appendChild(buildPickBadge(pk));
+  }
+}
+
+// ── SortableJS initialization ─────────────────────────────────────────────────
+
+function initSortables() {
+  // Player lists (one per tier×position cell)
+  document.querySelectorAll('.player-list').forEach(el => {
+    const s = Sortable.create(el, {
+      group:     { name: 'players', pull: true, put: true },
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      dragClass:  'sortable-drag',
+      onEnd(evt) {
+        if (evt.from === evt.to) return; // same cell, no tier change
+        const playerName = evt.item.dataset.playerName;
+        const newTier    = parseInt(evt.to.dataset.tier, 10);
+        movePlayer(playerName, newTier);
+      },
+    });
+    sortables.push(s);
+  });
+
+  // Picks lists: unassigned panel + each tier's picks cell
+  const unassignedEl = document.getElementById('unassigned-picks');
+  const uSort = Sortable.create(unassignedEl, {
+    group:     { name: 'picks', pull: true, put: true },
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    onEnd(evt) {
+      if (evt.from === evt.to) return;
+      const pickName = evt.item.dataset.pickName;
+      // Moved into unassigned from a tier
+      unassignPick(pickName, true);
+    },
+  });
+  sortables.push(uSort);
+
+  document.querySelectorAll('.picks-cell-list').forEach(el => {
+    const s = Sortable.create(el, {
+      group:     { name: 'picks', pull: true, put: true },
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      onEnd(evt) {
+        if (evt.from === evt.to) return;
+        const pickName = evt.item.dataset.pickName;
+        const newTier  = parseInt(evt.to.dataset.tier, 10);
+        if (!isNaN(newTier)) {
+          assignPick(pickName, newTier, true);
+        }
+      },
+    });
+    sortables.push(s);
+  });
+}
+
+// ── Avg rank update (no full re-render) ───────────────────────────────────────
+
+function updateAvgRankLabels() {
+  const avgRanks = calcAvgRanks();
+  document.querySelectorAll('.tier-row').forEach(row => {
+    const tier = parseInt(row.dataset.tier, 10);
+    const el   = row.querySelector('.tier-avg');
+    if (el) el.textContent = avgRanks[tier] !== null ? 'Avg: ' + avgRanks[tier] : 'empty';
+  });
+}
+
+// ── Action handlers ───────────────────────────────────────────────────────────
+
+async function movePlayer(playerName, newTier) {
+  const player = state.rankings.find(r => r.player_name === playerName);
+  if (!player || player.tier === newTier) return;
+  const oldTier = player.tier;
+  player.tier = newTier; // optimistic
+  updateAvgRankLabels();
+  updateTierRemoveButtons();
+  try {
+    await api('PATCH', '/api/myranks/player', { player_name: playerName, tier: newTier });
+  } catch (e) {
+    player.tier = oldTier; // rollback
+    updateAvgRankLabels();
+    showNotif('Failed to save move: ' + e.message, true);
+    renderGrid(); // re-render to fix DOM
+  }
+}
+
+async function removePlayer(playerName) {
+  state.rankings = state.rankings.filter(r => r.player_name !== playerName);
+  if (state.maxTier > Math.max(1, ...state.rankings.map(r => r.tier))) {
+    state.maxTier = Math.max(1, ...state.rankings.map(r => r.tier));
+  }
+  renderGrid();
+  try {
+    await api('DELETE', '/api/myranks/player', { player_name: playerName });
+  } catch (e) {
+    showNotif('Failed to remove player: ' + e.message, true);
+    await loadData();
+    renderGrid();
+  }
+}
+
+async function assignPick(pickName, tier, skipStateUpdate = false) {
+  if (!skipStateUpdate) {
+    const existing = state.picks.find(p => p.pick_name === pickName);
+    if (existing) existing.tier = tier;
+    else state.picks.push({ pick_name: pickName, tier });
+    renderUnassignedPicks();
+  } else {
+    // Update state to match DOM (DnD already moved it visually)
+    const existing = state.picks.find(p => p.pick_name === pickName);
+    if (existing) existing.tier = tier;
+    else state.picks.push({ pick_name: pickName, tier });
+  }
+  try {
+    await api('PATCH', '/api/myranks/pick', { pick_name: pickName, tier });
+  } catch (e) {
+    showNotif('Failed to save pick: ' + e.message, true);
+    await loadData();
+    renderGrid();
+  }
+}
+
+async function unassignPick(pickName, skipStateUpdate = false) {
+  if (!skipStateUpdate) {
+    state.picks = state.picks.filter(p => p.pick_name !== pickName);
+    renderUnassignedPicks();
+    // Also remove from tier row DOM
+    document.querySelectorAll('.picks-cell-list .pick-badge').forEach(el => {
+      if (el.dataset.pickName === pickName) el.remove();
+    });
+  } else {
+    state.picks = state.picks.filter(p => p.pick_name !== pickName);
+  }
+  try {
+    await api('PATCH', '/api/myranks/pick', { pick_name: pickName, tier: null });
+  } catch (e) {
+    showNotif('Failed to unassign pick: ' + e.message, true);
+    await loadData();
+    renderGrid();
+  }
+}
+
+async function removeTier(tier) {
+  state.maxTier = Math.max(1, ...getTierList().filter(t => t !== tier));
+  renderGrid();
+}
+
+function addTier() {
+  state.maxTier = Math.max(...getTierList()) + 1;
+  renderGrid();
+  // Scroll to bottom of grid
+  document.getElementById('tier-grid').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateTierRemoveButtons() {
+  document.querySelectorAll('.tier-row').forEach(row => {
+    const tier = parseInt(row.dataset.tier, 10);
+    const hasPlayers = state.rankings.some(r => r.tier === tier);
+    const hasPicks   = state.picks.some(p => p.tier === tier);
+    const btn = row.querySelector('.tier-remove');
+    if (hasPlayers || hasPicks) {
+      if (btn) btn.remove();
+    } else {
+      if (!btn) {
+        const info = row.querySelector('.tier-info');
+        const newBtn = document.createElement('button');
+        newBtn.className = 'tier-remove';
+        newBtn.title = 'Remove tier';
+        newBtn.innerHTML = '&#x2715;';
+        newBtn.onclick = () => removeTier(tier);
+        info.appendChild(newBtn);
+      }
+    }
+  });
+}
+
+// ── Add Player modal ──────────────────────────────────────────────────────────
+
+function populateTierDropdown() {
+  const sel = document.getElementById('ap-tier');
+  const cur = sel.value;
+  sel.innerHTML = '';
+  for (const t of getTierList()) {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = 'Tier ' + t;
+    sel.appendChild(opt);
+  }
+  if (cur) sel.value = cur;
+}
+
+function openAddPlayerModal() {
+  document.getElementById('ap-name').value = '';
+  document.getElementById('ap-team').value = '';
+  document.getElementById('ap-pos').value  = '';
+  document.getElementById('ap-err').style.display = 'none';
+  populateTierDropdown();
+  openModal('add-player-modal');
+  setTimeout(() => document.getElementById('ap-name').focus(), 50);
+}
+
+async function submitAddPlayer() {
+  const name = document.getElementById('ap-name').value.trim();
+  const team = document.getElementById('ap-team').value.trim().toUpperCase();
+  const pos  = document.getElementById('ap-pos').value;
+  const tier = parseInt(document.getElementById('ap-tier').value, 10);
+  const errEl = document.getElementById('ap-err');
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'Player name is required'; errEl.style.display = 'block'; return; }
+  if (!pos)  { errEl.textContent = 'Position is required';   errEl.style.display = 'block'; return; }
+
+  try {
+    await api('POST', '/api/myranks/add-player', { player_name: name, team, position: pos, tier });
+    state.rankings.push({ player_name: name, team, position: pos, tier });
+    state.maxTier = Math.max(state.maxTier, tier);
+    closeModal('add-player-modal');
+    renderGrid();
+    showNotif(`${name} added to Tier ${tier}`);
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// ── CSV Import ────────────────────────────────────────────────────────────────
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) throw new Error('CSV must have a header row and at least one player');
+
+  // Normalize header
+  const headerRaw = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z_]/g, ''));
+  const colMap = {};
+  const aliases = {
+    player_name: ['player_name', 'player', 'name', 'playername'],
+    team:        ['team', 'tm'],
+    position:    ['position', 'pos', 'postion'],
+    tier:        ['tier', 'tier_num', 'tiernum'],
+  };
+  for (const [field, alts] of Object.entries(aliases)) {
+    const idx = headerRaw.findIndex(h => alts.includes(h));
+    if (idx !== -1) colMap[field] = idx;
+  }
+  if (colMap.player_name === undefined) throw new Error('Could not find player name column (expected: player_name, player, or name)');
+  if (colMap.position    === undefined) throw new Error('Could not find position column (expected: position or pos)');
+  if (colMap.tier        === undefined) throw new Error('Could not find tier column (expected: tier)');
+
+  const VALID_POS = new Set(['QB', 'RB', 'WR', 'TE']);
+  const players = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    const player_name = (cols[colMap.player_name] || '').trim();
+    if (!player_name) continue;
+    const position = (cols[colMap.position] || '').trim().toUpperCase();
+    const tier     = parseInt(cols[colMap.tier] || '', 10);
+    const team     = colMap.team !== undefined ? (cols[colMap.team] || '').trim().toUpperCase() : '';
+
+    if (!VALID_POS.has(position)) throw new Error(`Row ${i + 1}: invalid position "${position}" (must be QB, RB, WR, or TE)`);
+    if (!Number.isInteger(tier) || tier < 1) throw new Error(`Row ${i + 1}: invalid tier "${cols[colMap.tier]}"`);
+    players.push({ player_name, team, position, tier });
+  }
+  if (players.length === 0) throw new Error('No valid players found in CSV');
+  return players;
+}
+
+function setupImportModal() {
+  const fileInput  = document.getElementById('csv-file');
+  const infoEl     = document.getElementById('import-info');
+  const errEl      = document.getElementById('import-err');
+  const confirmBtn = document.getElementById('import-confirm-btn');
+
+  fileInput.addEventListener('change', () => {
+    infoEl.style.display = 'none';
+    errEl.style.display  = 'none';
+    confirmBtn.disabled  = true;
+    pendingImport = null;
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const players = parseCSV(e.target.result);
+        pendingImport = players;
+        const tiers = new Set(players.map(p => p.tier)).size;
+        infoEl.textContent = `Ready to import ${players.length} players across ${tiers} tiers.`;
+        infoEl.style.display = 'block';
+        confirmBtn.disabled = false;
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (!pendingImport) return;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Importing…';
+    errEl.style.display = 'none';
+    try {
+      await api('POST', '/api/myranks/import', { players: pendingImport });
+      state.rankings = pendingImport;
+      state.picks    = [];
+      state.maxTier  = Math.max(1, ...pendingImport.map(p => p.tier));
+      closeModal('import-modal');
+      renderGrid();
+      showNotif(`Imported ${pendingImport.length} players`);
+      pendingImport = null;
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Import';
+    }
+  });
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+
+async function boot() {
+  const user = await SharedAuth.init({
+    chipContainerId: 'auth-chip',
+    onLogin:  () => { document.getElementById('auth-gate').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); loadData().then(renderGrid); },
+    onLogout: () => { document.getElementById('app').classList.add('hidden'); document.getElementById('auth-gate').classList.remove('hidden'); },
+  });
+
+  if (user) {
+    document.getElementById('auth-gate').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    try {
+      await loadData();
+      renderGrid();
+    } catch (e) {
+      showNotif('Failed to load rankings: ' + e.message, true);
+    }
+  } else {
+    document.getElementById('auth-gate').classList.remove('hidden');
+  }
+
+  // Toolbar buttons
+  document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('csv-file').value = '';
+    document.getElementById('import-info').style.display = 'none';
+    document.getElementById('import-err').style.display  = 'none';
+    document.getElementById('import-confirm-btn').disabled = true;
+    document.getElementById('import-confirm-btn').textContent = 'Import';
+    pendingImport = null;
+    openModal('import-modal');
+  });
+  document.getElementById('add-player-btn').addEventListener('click', openAddPlayerModal);
+  document.getElementById('add-tier-btn-top').addEventListener('click', addTier);
+  document.getElementById('add-tier-btn-bottom').addEventListener('click', addTier);
+
+  // Click outside to close modals
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+  });
+
+  setupImportModal();
+}
+
+// Expose globals needed by inline onclick handlers
+window.removePlayer  = removePlayer;
+window.unassignPick  = unassignPick;
+window.removeTier    = removeTier;
+window.submitAddPlayer = submitAddPlayer;
+window.closeModal    = closeModal;
+
+boot();
+
+})();
+</script>
+</body>
+</html>

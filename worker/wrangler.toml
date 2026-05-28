@@ -1,0 +1,23 @@
+# My Ranks — Worker config
+
+name               = "my-ranks-worker"
+main               = "src/index.js"
+compatibility_date = "2024-09-23"
+workers_dev        = false
+
+# Only /api/* on the subdomain hits this Worker.
+# Everything else (static HTML) is served by Pages.
+routes = [
+  { pattern = "myranks.ffhistorian.com/api/*", zone_name = "ffhistorian.com" }
+]
+
+# ── D1 Database ───────────────────────────────────────────────────────────────
+# Shared with sleeper-helper-worker for auth (sessions + users tables).
+# myranks-specific tables (user_rankings, user_tier_picks) also live here.
+[[d1_databases]]
+binding       = "DB"
+database_name = "sleeper-helper-db"
+database_id   = "7b094e00-d010-43a8-8f1a-047e72901cd8"
+
+[observability]
+enabled = true
