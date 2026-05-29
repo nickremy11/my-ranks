@@ -3,8 +3,6 @@ name: Deploy
 on:
   push:
     branches: [main]
-    paths:
-      - 'my-ranks/**'
 
 jobs:
   deploy-worker:
@@ -12,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: my-ranks/worker
+        working-directory: worker
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,5 +33,5 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           projectName: my-ranks
-          directory: my-ranks/pages
+          directory: pages
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
