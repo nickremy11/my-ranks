@@ -470,6 +470,7 @@ let pendingImport = null;
 let nameToAge      = {};  // normName → decimal age (from Sleeper, weekly cache)
 let nameToMktRank  = {};  // normName → { positionRank, position } (from FC, daily cache)
 let myPosRanks     = {};  // player_name → my positional rank (computed from state.rankings)
+let myAvgPosRanks  = {};  // player_name → tier-average positional rank (used for buy/sell)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -513,13 +514,31 @@ function computeMyPosRanks() {
   return result;
 }
 
+function computeMyAvgPosRanks() {
+  const result = {};
+  for (const pos of POSITIONS) {
+    const posPlayers = state.rankings
+      .filter(r => r.position === pos)
+      .sort((a, b) => a.tier !== b.tier ? a.tier - b.tier : a.player_name.localeCompare(b.player_name));
+    let i = 0;
+    while (i < posPlayers.length) {
+      const tier = posPlayers[i].tier;
+      let j = i;
+      while (j < posPlayers.length && posPlayers[j].tier === tier) j++;
+      const avg = (i + 1 + j) / 2; // avg of ranks (i+1) through j inclusive
+      for (let k = i; k < j; k++) result[posPlayers[k].player_name] = avg;
+      i = j;
+    }
+  }
+  return result;
+}
+
 function getBuySellClass(myRank, marketRank) {
   if (!myRank || !marketRank || marketRank === 0) return '';
   const diff = marketRank - myRank; // positive → market ranks lower → I rank higher → BUY
-  if (Math.abs(diff) < 2) return '';
-  const pct = Math.abs(diff) / marketRank * 100;
-  if (pct >= 50) return diff > 0 ? 'card-strong-buy' : 'card-strong-sell';
-  if (pct >= 25) return diff > 0 ? 'card-buy' : 'card-sell';
+  const pct  = Math.abs(diff) / marketRank * 100;
+  if (pct >= 40) return diff > 0 ? 'card-strong-buy' : 'card-strong-sell';
+  if (pct >= 20) return diff > 0 ? 'card-buy'        : 'card-sell';
   return '';
 }
 
@@ -593,7 +612,8 @@ async function loadData() {
     }
   }
 
-  myPosRanks = computeMyPosRanks();
+  myPosRanks    = computeMyPosRanks();
+  myAvgPosRanks = computeMyAvgPosRanks();
 }
 
 // ── Destroy sortables ─────────────────────────────────────────────────────────
@@ -607,7 +627,8 @@ function destroySortables() {
 
 function renderGrid() {
   destroySortables();
-  myPosRanks = computeMyPosRanks();
+  myPosRanks    = computeMyPosRanks();
+  myAvgPosRanks = computeMyAvgPosRanks();
 
   const tiers   = getTierList();
   const avgRanks = calcAvgRanks();
@@ -686,7 +707,7 @@ function buildPlayerCard(p) {
   const myRank    = myPosRanks[p.player_name];
   const mktEntry  = nameToMktRank[normName(p.player_name)];
   const mktRank   = mktEntry?.positionRank;
-  const buySell   = getBuySellClass(myRank, mktRank);
+  const buySell   = getBuySellClass(myAvgPosRanks[p.player_name], mktRank);
 
   const rankChipsHtml = (myRank || mktRank) ? `
     <div class="rank-chips">
@@ -795,7 +816,8 @@ function updateAvgRankLabels() {
 }
 
 function updateRankBadges() {
-  myPosRanks = computeMyPosRanks();
+  myPosRanks    = computeMyPosRanks();
+  myAvgPosRanks = computeMyAvgPosRanks();
   document.querySelectorAll('.player-card').forEach(cardEl => {
     const pName   = cardEl.dataset.playerName;
     const player  = state.rankings.find(r => r.player_name === pName);
