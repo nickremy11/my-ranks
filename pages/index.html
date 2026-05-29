@@ -671,13 +671,8 @@ function initSortables() {
     group:     { name: 'picks', pull: true, put: true },
     animation: 150,
     ghostClass: 'sortable-ghost',
-    onEnd(evt) {
-      if (evt.from === evt.to) return;
-      const pickName = evt.item.dataset.pickName;
-      const newTier  = parseInt(evt.to.dataset.tier, 10);
-      if (!isNaN(newTier)) {
-        assignPick(pickName, newTier, true);
-      }
+    onAdd(evt) {
+      unassignPick(evt.item.dataset.pickName, true);
     },
   });
   sortables.push(uSort);
@@ -687,15 +682,10 @@ function initSortables() {
       group:     { name: 'picks', pull: true, put: true },
       animation: 150,
       ghostClass: 'sortable-ghost',
-      onEnd(evt) {
-        if (evt.from === evt.to) return;
+      onAdd(evt) {
         const pickName = evt.item.dataset.pickName;
         const newTier  = parseInt(evt.to.dataset.tier, 10);
-        if (!isNaN(newTier)) {
-          assignPick(pickName, newTier, true);
-        } else {
-          unassignPick(pickName, true);
-        }
+        assignPick(pickName, newTier, true);
       },
     });
     sortables.push(s);
