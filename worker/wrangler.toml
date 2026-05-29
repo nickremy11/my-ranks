@@ -19,5 +19,13 @@ binding       = "DB"
 database_name = "sleeper-helper-db"
 database_id   = "7b094e00-d010-43a8-8f1a-047e72901cd8"
 
+# ── KV Namespace ──────────────────────────────────────────────────────────────
+# Shared with sleeper-helper-worker — reuses cached fc_values (24h) and
+# stores myranks_age_map (7-day TTL) without double-fetching Sleeper data.
+[[kv_namespaces]]
+binding    = "SLEEPER_KV"
+id         = "4644440791c644cb9a6af30fa00fbd25"
+preview_id = "182d9454412f4bfc9c9e396dbe53c468"
+
 [observability]
 enabled = true

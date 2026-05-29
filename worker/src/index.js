@@ -178,6 +178,61 @@ async function handlePatchPick(request, env, cors) {
   return json({ ok: true }, 200, cors);
 }
 
+// ── External data proxies (KV-cached, shared with sleeper-helper) ─────────────
+
+const SLEEPER_PLAYERS_URL = 'https://api.sleeper.app/v1/players/nfl';
+const FC_URL = 'https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=2&ppr=1&includePickValues=true';
+const AGE_MAP_KEY = 'myranks_age_map';
+const AGE_MAP_TTL = 60 * 60 * 24 * 7; // 7 days
+const FC_KEY      = 'fc_values';
+const FC_TTL      = 60 * 60 * 24;     // 24 hours
+
+function decimalAge(birthDateStr) {
+  if (!birthDateStr) return null;
+  const birth = new Date(birthDateStr);
+  if (isNaN(birth.getTime())) return null;
+  const ageDays = (Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.floor(ageDays / 365.25 * 10) / 10;
+}
+
+async function handleGetPlayers(env, cors) {
+  const cached = await env.SLEEPER_KV.get(AGE_MAP_KEY, 'text');
+  if (cached) return jsonRes(cached, cors);
+
+  const upstream = await fetch(SLEEPER_PLAYERS_URL, { headers: { 'User-Agent': 'myranks/1.0' } });
+  if (!upstream.ok) return err('Sleeper upstream error', 502, cors);
+
+  const players = await upstream.json();
+  const ageMap = {};
+  for (const p of Object.values(players)) {
+    if (!p.full_name) continue;
+    const age = decimalAge(p.birth_date) ?? (typeof p.age === 'number' ? p.age : null);
+    if (age !== null) ageMap[p.full_name] = age;
+  }
+
+  const body = JSON.stringify(ageMap);
+  await env.SLEEPER_KV.put(AGE_MAP_KEY, body, { expirationTtl: AGE_MAP_TTL });
+  return jsonRes(body, cors);
+}
+
+async function handleGetFC(env, cors) {
+  const cached = await env.SLEEPER_KV.get(FC_KEY, 'text');
+  if (cached) return jsonRes(cached, cors);
+
+  const upstream = await fetch(FC_URL, { headers: { 'User-Agent': 'myranks/1.0' } });
+  if (!upstream.ok) return err('FantasyCalc upstream error', 502, cors);
+
+  const body = await upstream.text();
+  await env.SLEEPER_KV.put(FC_KEY, body, { expirationTtl: FC_TTL });
+  return jsonRes(body, cors);
+}
+
+function jsonRes(body, cors) {
+  return new Response(body, {
+    headers: { ...cors, 'Content-Type': 'application/json;charset=UTF-8' },
+  });
+}
+
 // ── Main fetch handler ────────────────────────────────────────────────────────
 
 export default {
@@ -206,6 +261,8 @@ export default {
     if (path === '/api/myranks/player'     && method === 'DELETE') return handleDeletePlayer(request, env, cors);
     if (path === '/api/myranks/add-player' && method === 'POST')   return handleAddPlayer(request, env, cors);
     if (path === '/api/myranks/pick'       && method === 'PATCH')  return handlePatchPick(request, env, cors);
+    if (path === '/api/myranks/players'    && method === 'GET')    return handleGetPlayers(env, cors);
+    if (path === '/api/myranks/fc'         && method === 'GET')    return handleGetFC(env, cors);
 
     return new Response('Not found', { status: 404 });
   },
