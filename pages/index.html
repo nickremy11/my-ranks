@@ -487,7 +487,7 @@ function calcAvgRanks() {
     } else {
       const first = rank;
       const last  = rank + count - 1;
-      result[tier] = count === 1 ? first : Math.round((first + last) / 2);
+      result[tier] = ((first + last) / 2).toFixed(1);
       rank += count;
     }
   }
@@ -674,8 +674,10 @@ function initSortables() {
     onEnd(evt) {
       if (evt.from === evt.to) return;
       const pickName = evt.item.dataset.pickName;
-      // Moved into unassigned from a tier
-      unassignPick(pickName, true);
+      const newTier  = parseInt(evt.to.dataset.tier, 10);
+      if (!isNaN(newTier)) {
+        assignPick(pickName, newTier, true);
+      }
     },
   });
   sortables.push(uSort);
@@ -691,6 +693,8 @@ function initSortables() {
         const newTier  = parseInt(evt.to.dataset.tier, 10);
         if (!isNaN(newTier)) {
           assignPick(pickName, newTier, true);
+        } else {
+          unassignPick(pickName, true);
         }
       },
     });
