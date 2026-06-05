@@ -894,10 +894,13 @@ function updateRankBadges() {
     const player  = state.rankings.find(r => r.player_name === pName);
     if (!player) return;
 
-    const myRank   = myPosRanks[pName];
-    const mktEntry = nameToMktRank[normName(pName)];
-    const mktRank  = mktEntry?.positionRank;
-    const buySell  = getBuySellClass(myRank, mktRank);
+    const myRank     = myPosRanks[pName];
+    const mktEntry   = nameToMktRank[normName(pName)];
+    const mktRank    = mktEntry?.positionRank;
+    const aheadCount = state.rankings.filter(r => r.position === player.position && r.tier < player.tier).length;
+    const tierCount  = state.rankings.filter(r => r.position === player.position && r.tier === player.tier).length;
+    const myAvgRank  = aheadCount + (tierCount + 1) / 2;
+    const buySell    = getBuySellClass(myAvgRank, mktRank);
 
     cardEl.classList.remove('card-buy', 'card-strong-buy', 'card-sell', 'card-strong-sell');
     if (buySell) cardEl.classList.add(buySell);
