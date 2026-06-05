@@ -546,6 +546,7 @@ let nameToAge      = {};  // normName → decimal age (from Sleeper, weekly cach
 let nameToMktRank  = {};  // normName → { positionRank, position } (from FC, daily cache)
 let myPosRanks     = {};  // player_name → my positional rank (computed from state.rankings)
 
+let removedTiers     = new Set(); // tiers explicitly deleted (survives re-render, reset on data load)
 let activeSetId      = null;  // null = own rankings; integer = named set id
 let savedSets        = [];    // own named sets [{id, name, updated_at, player_count}]
 let sharedWithMeSets = [];    // sets shared with me [{id, name, owner_name, ...}]
@@ -628,9 +629,10 @@ function calcAvgRanks() {
 }
 
 function getTierList() {
-  const fromData = state.rankings.map(r => r.tier);
-  const all = new Set([...fromData]);
-  for (let t = 1; t <= state.maxTier; t++) all.add(t);
+  const all = new Set(state.rankings.map(r => r.tier));
+  for (let t = 1; t <= state.maxTier; t++) {
+    if (!removedTiers.has(t)) all.add(t);
+  }
   return [...all].sort((a, b) => a - b);
 }
 
@@ -659,6 +661,7 @@ async function loadData() {
   state.rankings = d.rankings || [];
   state.picks    = d.picks    || [];
   state.maxTier  = Math.max(1, ...state.rankings.map(r => r.tier));
+  removedTiers   = new Set();
 
   // Build name → decimal age map (keys already normalized by worker)
   nameToAge = {};
@@ -722,9 +725,7 @@ function buildTierRow(tier, avgRank) {
   // Tier info cell
   const infoCell = document.createElement('div');
   infoCell.className = 'tier-info';
-  const canRemove = !isViewOnly &&
-                    state.rankings.filter(r => r.tier === tier).length === 0 &&
-                    state.picks.filter(p => p.tier === tier).length === 0;
+  const canRemove = !isViewOnly;
   infoCell.innerHTML = `
     <div>
       <div class="tier-label">Tier ${tier}</div>
@@ -987,7 +988,26 @@ async function unassignPick(pickName, skipStateUpdate = false) {
 }
 
 async function removeTier(tier) {
-  state.maxTier = Math.max(1, ...getTierList().filter(t => t !== tier));
+  const tierPlayers = state.rankings.filter(r => r.tier === tier);
+  const tierPicks   = state.picks.filter(p => p.tier === tier);
+  const hasContent  = tierPlayers.length > 0 || tierPicks.length > 0;
+
+  if (hasContent) {
+    const parts = [];
+    if (tierPlayers.length) parts.push(`${tierPlayers.length} player${tierPlayers.length !== 1 ? 's' : ''}`);
+    if (tierPicks.length)   parts.push(`${tierPicks.length} pick${tierPicks.length !== 1 ? 's' : ''}`);
+    if (!confirm(`Delete Tier ${tier}? This will also remove ${parts.join(' and ')}.`)) return;
+    try {
+      await api('DELETE', '/api/myranks/tier', { tier });
+    } catch (e) {
+      showNotif('Failed to delete tier: ' + e.message, true);
+      return;
+    }
+    state.rankings = state.rankings.filter(r => r.tier !== tier);
+    state.picks    = state.picks.filter(p => p.tier !== tier);
+  }
+
+  removedTiers.add(tier);
   renderGrid();
 }
 
@@ -999,23 +1019,16 @@ function addTier() {
 }
 
 function updateTierRemoveButtons() {
+  if (isViewOnly) return;
   document.querySelectorAll('.tier-row').forEach(row => {
     const tier = parseInt(row.dataset.tier, 10);
-    const hasPlayers = state.rankings.some(r => r.tier === tier);
-    const hasPicks   = state.picks.some(p => p.tier === tier);
-    const btn = row.querySelector('.tier-remove');
-    if (hasPlayers || hasPicks) {
-      if (btn) btn.remove();
-    } else {
-      if (!btn) {
-        const info = row.querySelector('.tier-info');
-        const newBtn = document.createElement('button');
-        newBtn.className = 'tier-remove';
-        newBtn.title = 'Remove tier';
-        newBtn.innerHTML = '&#x2715;';
-        newBtn.onclick = () => removeTier(tier);
-        info.appendChild(newBtn);
-      }
+    if (!row.querySelector('.tier-remove')) {
+      const newBtn = document.createElement('button');
+      newBtn.className = 'tier-remove';
+      newBtn.title = 'Remove tier';
+      newBtn.innerHTML = '&#x2715;';
+      newBtn.onclick = () => removeTier(tier);
+      row.querySelector('.tier-info').appendChild(newBtn);
     }
   });
 }

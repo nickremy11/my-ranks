@@ -111,6 +111,24 @@ async function handleImport(request, env, cors) {
   return json({ ok: true, imported: players.length }, 200, cors);
 }
 
+async function handleDeleteTier(request, env, cors) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON', 400, cors); }
+
+  const { tier } = body ?? {};
+  if (!Number.isInteger(tier) || tier < 1) return err('tier must be a positive integer', 400, cors);
+
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM user_rankings WHERE user_id = ? AND tier = ?').bind(user.user_id, tier),
+    env.DB.prepare('DELETE FROM user_tier_picks WHERE user_id = ? AND tier = ?').bind(user.user_id, tier),
+  ]);
+
+  return json({ ok: true }, 200, cors);
+}
+
 async function handlePatchPlayer(request, env, cors) {
   const user = await getAuthUser(request, env);
   if (!user) return err('Not authenticated', 401, cors);
@@ -560,6 +578,7 @@ export default {
 
     // Rankings routes
     if (path === '/api/myranks/data'       && method === 'GET')    return handleGetData(request, env, cors);
+    if (path === '/api/myranks/tier'       && method === 'DELETE') return handleDeleteTier(request, env, cors);
     if (path === '/api/myranks/import'     && method === 'POST')   return handleImport(request, env, cors);
     if (path === '/api/myranks/player'     && method === 'PATCH')  return handlePatchPlayer(request, env, cors);
     if (path === '/api/myranks/player'     && method === 'DELETE') return handleDeletePlayer(request, env, cors);
