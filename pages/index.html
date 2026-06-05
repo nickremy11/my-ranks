@@ -317,6 +317,25 @@ body::before {
 .notif.show { opacity: 1; transform: translateY(0); }
 .notif.err { background: var(--red); }
 
+/* ── Dropdown ── */
+.dropdown { position: relative; }
+.dropdown-menu {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 100;
+  background: var(--brown-dark); border: 2px solid var(--gold); border-radius: 2px;
+  min-width: 210px; box-shadow: 4px 4px 0 rgba(0,0,0,0.35); overflow: hidden;
+}
+.dropdown-item {
+  font-family: 'Crimson Text', serif; font-size: 0.88rem;
+  color: var(--parchment); padding: 9px 14px; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.12s; white-space: nowrap;
+}
+.dropdown-item:last-child { border-bottom: none; }
+.dropdown-item:hover { background: rgba(255,255,255,0.08); color: var(--cream); }
+.dropdown-item.active { color: var(--gold-light); font-weight: 600; }
+.dropdown-item.add-new { color: var(--gold); font-style: italic; }
+.dropdown-divider { border-top: 1px solid rgba(201,150,42,0.25); }
+
 /* ── Hidden ── */
 .hidden { display: none !important; }
 
@@ -357,10 +376,22 @@ body::before {
 
     <!-- Toolbar -->
     <div class="toolbar">
-      <span class="toolbar-title">Tier Board</span>
+      <span class="toolbar-title" id="toolbar-title">Tier Board</span>
+      <!-- My-rankings controls (hidden in view-only mode) -->
+      <button class="btn btn-sm btn-ghost" id="export-btn">&#8595; Export CSV</button>
       <button class="btn btn-sm btn-ghost" id="import-btn">&#8593; Import CSV</button>
       <button class="btn btn-sm btn-ghost" id="add-player-btn">+ Add Player</button>
       <button class="btn btn-sm btn-ghost" id="add-tier-btn-top">+ Add Tier</button>
+      <!-- Set-view controls (shown in view-only mode) -->
+      <button class="btn btn-sm btn-ghost hidden" id="set-export-btn">&#8595; Export CSV</button>
+      <button class="btn btn-sm btn-ghost hidden" id="set-overwrite-btn">&#8593; Overwrite</button>
+      <button class="btn btn-sm btn-danger hidden" id="set-delete-btn">Delete</button>
+      <button class="btn btn-sm btn-ghost hidden" id="back-btn">&#8592; My Rankings</button>
+      <!-- Other rankings dropdown (always visible) -->
+      <div class="dropdown" id="sets-dropdown-wrap">
+        <button class="btn btn-sm" id="sets-dropdown-btn">Other Rankings &#9662;</button>
+        <div class="dropdown-menu hidden" id="sets-dropdown-menu"></div>
+      </div>
     </div>
 
     <!-- Unassigned picks panel -->
@@ -394,10 +425,14 @@ body::before {
 <div id="import-modal" class="modal-overlay">
   <div class="modal-card">
     <button class="modal-close" onclick="closeModal('import-modal')">&times;</button>
-    <div class="modal-title">Import CSV</div>
+    <div class="modal-title" id="import-modal-title">Import CSV</div>
+    <div id="import-set-name-wrap" style="display:none;">
+      <label class="modal-label">Name for this ranking set</label>
+      <input type="text" id="import-set-name" class="modal-field" placeholder="e.g. Jake's Rankings 2026" maxlength="80" />
+    </div>
     <p class="modal-hint">
       Expected columns: <strong>player_name, team, position, tier</strong> (or player, pos, etc. — headers are matched flexibly).<br>
-      Position must be QB, RB, WR, or TE. This will replace all existing rankings.
+      Position must be QB, RB, WR, or TE.
     </p>
     <label class="modal-label">Choose CSV File</label>
     <input type="file" id="csv-file" accept=".csv,.txt" class="modal-field" style="padding:6px 10px; cursor:pointer;" />
@@ -470,6 +505,11 @@ let pendingImport = null;
 let nameToAge      = {};  // normName → decimal age (from Sleeper, weekly cache)
 let nameToMktRank  = {};  // normName → { positionRank, position } (from FC, daily cache)
 let myPosRanks     = {};  // player_name → my positional rank (computed from state.rankings)
+
+let activeSetId  = null;  // null = own rankings; integer = named set id
+let savedSets    = [];    // [{id, name, updated_at, player_count}]
+let isViewOnly   = false; // true when browsing a named set
+let importMode   = 'my';  // 'my' | 'new' | 'overwrite'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -627,6 +667,8 @@ function renderGrid() {
 
   // Populate tier dropdown in Add Player modal
   populateTierDropdown();
+
+  document.querySelector('.add-tier-wrap').classList.toggle('hidden', isViewOnly);
 }
 
 function buildTierRow(tier, avgRank) {
@@ -637,7 +679,8 @@ function buildTierRow(tier, avgRank) {
   // Tier info cell
   const infoCell = document.createElement('div');
   infoCell.className = 'tier-info';
-  const canRemove = state.rankings.filter(r => r.tier === tier).length === 0 &&
+  const canRemove = !isViewOnly &&
+                    state.rankings.filter(r => r.tier === tier).length === 0 &&
                     state.picks.filter(p => p.tier === tier).length === 0;
   infoCell.innerHTML = `
     <div>
@@ -710,7 +753,7 @@ function buildPlayerCard(p) {
       </div>
       ${rankChipsHtml}
     </div>
-    <button class="player-remove" title="Remove player" onclick="removePlayer(${JSON.stringify(p.player_name)})">&#x2715;</button>
+    ${!isViewOnly ? `<button class="player-remove" title="Remove player" onclick="removePlayer(${JSON.stringify(p.player_name)})">&#x2715;</button>` : ''}
   `;
   return card;
 }
@@ -743,6 +786,7 @@ function renderUnassignedPicks() {
 // ── SortableJS initialization ─────────────────────────────────────────────────
 
 function initSortables() {
+  if (isViewOnly) return;
   // Player lists (one per tier×position cell)
   document.querySelectorAll('.player-list').forEach(el => {
     const s = Sortable.create(el, {
@@ -977,6 +1021,153 @@ async function submitAddPlayer() {
   }
 }
 
+// ── Named sets ────────────────────────────────────────────────────────────────
+
+async function loadSets() {
+  try {
+    const d = await api('GET', '/api/myranks/sets');
+    savedSets = d.sets || [];
+  } catch (_) {
+    savedSets = [];
+  }
+  renderSetsDropdown();
+}
+
+function renderSetsDropdown() {
+  const menu = document.getElementById('sets-dropdown-menu');
+  menu.innerHTML = '';
+
+  const myItem = document.createElement('div');
+  myItem.className = 'dropdown-item' + (activeSetId === null ? ' active' : '');
+  myItem.textContent = (activeSetId === null ? '✓ ' : '') + 'My Rankings';
+  myItem.onclick = () => { backToMyRankings(); closeSetsDropdown(); };
+  menu.appendChild(myItem);
+
+  if (savedSets.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'dropdown-divider';
+    menu.appendChild(divider);
+    for (const s of savedSets) {
+      const item = document.createElement('div');
+      item.className = 'dropdown-item' + (activeSetId === s.id ? ' active' : '');
+      item.textContent = (activeSetId === s.id ? '✓ ' : '') + s.name;
+      item.onclick = () => { openSet(s.id); closeSetsDropdown(); };
+      menu.appendChild(item);
+    }
+  }
+
+  const divider2 = document.createElement('div');
+  divider2.className = 'dropdown-divider';
+  menu.appendChild(divider2);
+
+  const addItem = document.createElement('div');
+  addItem.className = 'dropdown-item add-new';
+  addItem.textContent = '＋ Add Rankings';
+  addItem.onclick = () => { openNewSetImport(); closeSetsDropdown(); };
+  menu.appendChild(addItem);
+}
+
+function toggleSetsDropdown() {
+  document.getElementById('sets-dropdown-menu').classList.toggle('hidden');
+}
+
+function closeSetsDropdown() {
+  document.getElementById('sets-dropdown-menu').classList.add('hidden');
+}
+
+function setViewMode(viewOnly) {
+  isViewOnly = viewOnly;
+  const myIds  = ['export-btn', 'import-btn', 'add-player-btn', 'add-tier-btn-top'];
+  const setIds = ['set-export-btn', 'set-overwrite-btn', 'set-delete-btn', 'back-btn'];
+  myIds.forEach(id  => document.getElementById(id).classList.toggle('hidden', viewOnly));
+  setIds.forEach(id => document.getElementById(id).classList.toggle('hidden', !viewOnly));
+  document.querySelector('.picks-panel').classList.toggle('hidden', viewOnly);
+}
+
+async function openSet(id) {
+  try {
+    const d = await api('GET', `/api/myranks/sets/${id}/data`);
+    activeSetId   = id;
+    state.rankings = d.rankings || [];
+    state.picks    = [];
+    state.maxTier  = Math.max(1, ...state.rankings.map(r => r.tier));
+    document.getElementById('toolbar-title').textContent = d.name;
+    setViewMode(true);
+    renderGrid();
+    renderSetsDropdown();
+  } catch (e) {
+    showNotif('Failed to load rankings: ' + e.message, true);
+  }
+}
+
+function backToMyRankings() {
+  if (!isViewOnly) return;
+  activeSetId = null;
+  document.getElementById('toolbar-title').textContent = 'Tier Board';
+  setViewMode(false);
+  loadData().then(renderGrid);
+  renderSetsDropdown();
+}
+
+async function deleteActiveSet() {
+  if (!activeSetId) return;
+  const s = savedSets.find(s => s.id === activeSetId);
+  if (!confirm(`Delete "${s?.name || 'this set'}"? This cannot be undone.`)) return;
+  try {
+    await api('DELETE', `/api/myranks/sets/${activeSetId}`);
+    savedSets = savedSets.filter(s => s.id !== activeSetId);
+    showNotif(`Deleted "${s?.name}"`);
+    backToMyRankings();
+  } catch (e) {
+    showNotif('Failed to delete: ' + e.message, true);
+  }
+}
+
+function openNewSetImport() {
+  importMode = 'new';
+  document.getElementById('import-modal-title').textContent = 'Add Rankings';
+  document.getElementById('import-set-name-wrap').style.display = 'block';
+  document.getElementById('import-set-name').value = '';
+  document.getElementById('csv-file').value = '';
+  document.getElementById('import-info').style.display = 'none';
+  document.getElementById('import-err').style.display  = 'none';
+  document.getElementById('import-confirm-btn').disabled = true;
+  document.getElementById('import-confirm-btn').textContent = 'Save';
+  pendingImport = null;
+  openModal('import-modal');
+}
+
+function openOverwriteImport() {
+  if (!activeSetId) return;
+  importMode = 'overwrite';
+  const s = savedSets.find(s => s.id === activeSetId);
+  document.getElementById('import-modal-title').textContent = `Overwrite: ${s?.name || ''}`;
+  document.getElementById('import-set-name-wrap').style.display = 'none';
+  document.getElementById('csv-file').value = '';
+  document.getElementById('import-info').style.display = 'none';
+  document.getElementById('import-err').style.display  = 'none';
+  document.getElementById('import-confirm-btn').disabled = true;
+  document.getElementById('import-confirm-btn').textContent = 'Overwrite';
+  pendingImport = null;
+  openModal('import-modal');
+}
+
+// ── CSV Export ────────────────────────────────────────────────────────────────
+
+function exportCSV() {
+  if (state.rankings.length === 0) { showNotif('No rankings to export', true); return; }
+  const rows = [['player_name', 'team', 'position', 'tier']];
+  const sorted = [...state.rankings].sort((a, b) => a.tier !== b.tier ? a.tier - b.tier : a.player_name.localeCompare(b.player_name));
+  for (const r of sorted) {
+    rows.push([r.player_name, r.team || '', r.position, r.tier]);
+  }
+  const csv = rows.map(r => r.map(v => /,|"|\n/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'my-rankings.csv';
+  a.click();
+}
+
 // ── CSV Import ────────────────────────────────────────────────────────────────
 
 function parseCSV(text) {
@@ -1051,22 +1242,52 @@ function setupImportModal() {
   confirmBtn.addEventListener('click', async () => {
     if (!pendingImport) return;
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Importing…';
+    const origText = confirmBtn.textContent;
+    confirmBtn.textContent = 'Saving…';
     errEl.style.display = 'none';
     try {
-      await api('POST', '/api/myranks/import', { players: pendingImport });
-      state.rankings = pendingImport;
-      state.picks    = [];
-      state.maxTier  = Math.max(1, ...pendingImport.map(p => p.tier));
-      closeModal('import-modal');
-      renderGrid();
-      showNotif(`Imported ${pendingImport.length} players`);
+      if (importMode === 'my') {
+        await api('POST', '/api/myranks/import', { players: pendingImport });
+        state.rankings = pendingImport;
+        state.picks    = [];
+        state.maxTier  = Math.max(1, ...pendingImport.map(p => p.tier));
+        closeModal('import-modal');
+        renderGrid();
+        showNotif(`Imported ${pendingImport.length} players`);
+
+      } else if (importMode === 'new') {
+        const name = document.getElementById('import-set-name').value.trim();
+        if (!name) {
+          errEl.textContent = 'Please enter a name for this ranking set';
+          errEl.style.display = 'block';
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = origText;
+          return;
+        }
+        const d = await api('POST', '/api/myranks/sets', { name, players: pendingImport });
+        const newSet = { id: d.id, name, updated_at: Date.now(), player_count: pendingImport.length };
+        savedSets.unshift(newSet);
+        closeModal('import-modal');
+        showNotif(`Saved "${name}" (${pendingImport.length} players)`);
+        openSet(d.id);
+
+      } else if (importMode === 'overwrite') {
+        await api('PUT', `/api/myranks/sets/${activeSetId}`, { players: pendingImport });
+        const s = savedSets.find(s => s.id === activeSetId);
+        if (s) { s.player_count = pendingImport.length; s.updated_at = Date.now(); }
+        state.rankings = pendingImport;
+        state.maxTier  = Math.max(1, ...pendingImport.map(p => p.tier));
+        closeModal('import-modal');
+        renderGrid();
+        showNotif(`Updated (${pendingImport.length} players)`);
+      }
+
       pendingImport = null;
     } catch (e) {
       errEl.textContent = e.message;
       errEl.style.display = 'block';
       confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Import';
+      confirmBtn.textContent = origText;
     }
   });
 }
@@ -1076,7 +1297,7 @@ function setupImportModal() {
 async function boot() {
   const user = await SharedAuth.init({
     chipContainerId: 'auth-chip',
-    onLogin:  () => { document.getElementById('auth-gate').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); loadData().then(renderGrid); },
+    onLogin:  () => { document.getElementById('auth-gate').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); loadData().then(renderGrid); loadSets(); },
     onLogout: () => { document.getElementById('app').classList.add('hidden'); document.getElementById('auth-gate').classList.remove('hidden'); },
   });
 
@@ -1086,6 +1307,7 @@ async function boot() {
     try {
       await loadData();
       renderGrid();
+      loadSets();
     } catch (e) {
       showNotif('Failed to load rankings: ' + e.message, true);
     }
@@ -1094,7 +1316,21 @@ async function boot() {
   }
 
   // Toolbar buttons
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+  document.getElementById('set-export-btn').addEventListener('click', exportCSV);
+  document.getElementById('set-overwrite-btn').addEventListener('click', openOverwriteImport);
+  document.getElementById('set-delete-btn').addEventListener('click', deleteActiveSet);
+  document.getElementById('back-btn').addEventListener('click', backToMyRankings);
+  document.getElementById('sets-dropdown-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    toggleSetsDropdown();
+  });
+  document.addEventListener('click', () => closeSetsDropdown());
+
   document.getElementById('import-btn').addEventListener('click', () => {
+    importMode = 'my';
+    document.getElementById('import-modal-title').textContent = 'Import CSV';
+    document.getElementById('import-set-name-wrap').style.display = 'none';
     document.getElementById('csv-file').value = '';
     document.getElementById('import-info').style.display = 'none';
     document.getElementById('import-err').style.display  = 'none';
@@ -1116,11 +1352,14 @@ async function boot() {
 }
 
 // Expose globals needed by inline onclick handlers
-window.removePlayer  = removePlayer;
-window.unassignPick  = unassignPick;
-window.removeTier    = removeTier;
+window.removePlayer    = removePlayer;
+window.unassignPick    = unassignPick;
+window.removeTier      = removeTier;
 window.submitAddPlayer = submitAddPlayer;
-window.closeModal    = closeModal;
+window.closeModal      = closeModal;
+window.deleteActiveSet = deleteActiveSet;
+window.backToMyRankings = backToMyRankings;
+window.toggleSetsDropdown = toggleSetsDropdown;
 
 boot();
 

@@ -178,6 +178,135 @@ async function handlePatchPick(request, env, cors) {
   return json({ ok: true }, 200, cors);
 }
 
+// ── Named ranking sets ────────────────────────────────────────────────────────
+
+async function handleListSets(request, env, cors) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const res = await env.DB.prepare(
+    `SELECT s.id, s.name, s.created_at, s.updated_at, COUNT(p.player_name) AS player_count
+     FROM named_ranking_sets s
+     LEFT JOIN named_ranking_players p ON p.set_id = s.id
+     WHERE s.owner_user_id = ?
+     GROUP BY s.id
+     ORDER BY s.updated_at DESC`
+  ).bind(user.user_id).all();
+
+  return json({ sets: res.results }, 200, cors);
+}
+
+async function handleCreateSet(request, env, cors) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON', 400, cors); }
+
+  const { name, players } = body ?? {};
+  if (!name || typeof name !== 'string' || !name.trim()) return err('name required', 400, cors);
+  if (!Array.isArray(players)) return err('players array required', 400, cors);
+
+  const VALID_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE']);
+  for (const p of players) {
+    if (!p.player_name) return err('Each player needs player_name', 400, cors);
+    if (!VALID_POSITIONS.has(p.position)) return err(`Invalid position: ${p.position}`, 400, cors);
+    if (!Number.isInteger(p.tier) || p.tier < 1) return err('tier must be a positive integer', 400, cors);
+  }
+
+  const now = Date.now();
+  const setResult = await env.DB.prepare(
+    'INSERT INTO named_ranking_sets (owner_user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)'
+  ).bind(user.user_id, name.trim(), now, now).run();
+
+  const setId = setResult.meta.last_row_id;
+  const CHUNK = 25;
+  for (let i = 0; i < players.length; i += CHUNK) {
+    const chunk = players.slice(i, i + CHUNK);
+    await env.DB.batch(chunk.map(p =>
+      env.DB.prepare(
+        'INSERT INTO named_ranking_players (set_id, player_name, team, position, tier) VALUES (?, ?, ?, ?, ?)'
+      ).bind(setId, p.player_name.trim(), (p.team || '').trim(), p.position, p.tier)
+    ));
+  }
+
+  return json({ ok: true, id: setId }, 200, cors);
+}
+
+async function handleGetSetData(request, env, cors, setId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const set = await env.DB.prepare(
+    'SELECT id, name FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
+  ).bind(setId, user.user_id).first();
+  if (!set) return err('Set not found', 404, cors);
+
+  const res = await env.DB.prepare(
+    'SELECT player_name, team, position, tier FROM named_ranking_players WHERE set_id = ? ORDER BY tier, position, player_name'
+  ).bind(setId).all();
+
+  return json({ id: set.id, name: set.name, rankings: res.results }, 200, cors);
+}
+
+async function handleOverwriteSet(request, env, cors, setId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const set = await env.DB.prepare(
+    'SELECT id FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
+  ).bind(setId, user.user_id).first();
+  if (!set) return err('Set not found', 404, cors);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON', 400, cors); }
+
+  const { players } = body ?? {};
+  if (!Array.isArray(players)) return err('players array required', 400, cors);
+
+  const VALID_POSITIONS = new Set(['QB', 'RB', 'WR', 'TE']);
+  for (const p of players) {
+    if (!p.player_name) return err('Each player needs player_name', 400, cors);
+    if (!VALID_POSITIONS.has(p.position)) return err(`Invalid position: ${p.position}`, 400, cors);
+    if (!Number.isInteger(p.tier) || p.tier < 1) return err('tier must be a positive integer', 400, cors);
+  }
+
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM named_ranking_players WHERE set_id = ?').bind(setId),
+    env.DB.prepare('UPDATE named_ranking_sets SET updated_at = ? WHERE id = ?').bind(now, setId),
+  ]);
+
+  const CHUNK = 25;
+  for (let i = 0; i < players.length; i += CHUNK) {
+    const chunk = players.slice(i, i + CHUNK);
+    await env.DB.batch(chunk.map(p =>
+      env.DB.prepare(
+        'INSERT INTO named_ranking_players (set_id, player_name, team, position, tier) VALUES (?, ?, ?, ?, ?)'
+      ).bind(setId, p.player_name.trim(), (p.team || '').trim(), p.position, p.tier)
+    ));
+  }
+
+  return json({ ok: true }, 200, cors);
+}
+
+async function handleDeleteSet(request, env, cors, setId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const set = await env.DB.prepare(
+    'SELECT id FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
+  ).bind(setId, user.user_id).first();
+  if (!set) return err('Set not found', 404, cors);
+
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM named_ranking_players WHERE set_id = ?').bind(setId),
+    env.DB.prepare('DELETE FROM named_ranking_sets WHERE id = ?').bind(setId),
+  ]);
+
+  return json({ ok: true }, 200, cors);
+}
+
 // ── External data proxies (KV-cached, shared with sleeper-helper) ─────────────
 
 const SLEEPER_PLAYERS_URL = 'https://api.sleeper.app/v1/players/nfl';
@@ -263,6 +392,17 @@ export default {
     if (path === '/api/myranks/pick'       && method === 'PATCH')  return handlePatchPick(request, env, cors);
     if (path === '/api/myranks/players'    && method === 'GET')    return handleGetPlayers(env, cors);
     if (path === '/api/myranks/fc'         && method === 'GET')    return handleGetFC(env, cors);
+
+    // Named sets routes
+    if (path === '/api/myranks/sets' && method === 'GET')  return handleListSets(request, env, cors);
+    if (path === '/api/myranks/sets' && method === 'POST') return handleCreateSet(request, env, cors);
+    const setMatch = path.match(/^\/api\/myranks\/sets\/(\d+)(\/data)?$/);
+    if (setMatch) {
+      const setId = parseInt(setMatch[1], 10);
+      if (setMatch[2] === '/data' && method === 'GET') return handleGetSetData(request, env, cors, setId);
+      if (!setMatch[2] && method === 'PUT')            return handleOverwriteSet(request, env, cors, setId);
+      if (!setMatch[2] && method === 'DELETE')         return handleDeleteSet(request, env, cors, setId);
+    }
 
     return new Response('Not found', { status: 404 });
   },
