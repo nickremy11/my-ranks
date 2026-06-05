@@ -238,8 +238,9 @@ body::before {
   font-size: 0.66rem; padding: 1px 4px; border-radius: 2px;
   font-family: 'Crimson Text', serif; line-height: 1.3; white-space: nowrap;
 }
-.rank-mine   { background: var(--green); color: var(--gold-light); }
-.rank-market { background: var(--brown-mid); color: var(--cream); }
+.rank-mine    { background: var(--green); color: var(--gold-light); }
+.rank-market  { background: var(--brown-mid); color: var(--cream); }
+.rank-overall { background: var(--brown-dark); color: var(--parchment); border: 1px solid rgba(201,150,42,0.35); }
 /* Buy/sell card highlights */
 .player-card.card-buy         { background: rgba(74,122,47,0.10); border-color: rgba(74,122,47,0.55); }
 .player-card.card-strong-buy  { background: rgba(45,74,30,0.18); border-color: #2d4a1e; }
@@ -399,6 +400,7 @@ body::before {
       <button class="btn btn-sm btn-ghost" id="import-btn">&#8593; Import CSV</button>
       <button class="btn btn-sm btn-ghost" id="add-player-btn">+ Add Player</button>
       <button class="btn btn-sm btn-ghost" id="add-tier-btn-top">+ Add Tier</button>
+      <button class="btn btn-sm btn-ghost" id="my-share-btn">Share</button>
       <!-- Set-view controls (shown in view-only mode) -->
       <button class="btn btn-sm btn-ghost hidden" id="set-export-btn">&#8595; Export CSV</button>
       <button class="btn btn-sm btn-ghost hidden" id="set-overwrite-btn">&#8593; Overwrite</button>
@@ -671,7 +673,7 @@ async function loadData() {
     const posRank = item?.positionRank;
     const pos  = item?.player?.position;
     if (name && posRank && pos && ['QB','RB','WR','TE'].includes(pos)) {
-      nameToMktRank[normName(name)] = { positionRank: posRank, position: pos };
+      nameToMktRank[normName(name)] = { positionRank: posRank, overallRank: item?.overallRank ?? null, position: pos };
     }
   }
 
@@ -776,10 +778,12 @@ function buildPlayerCard(p) {
   const myAvgRank  = aheadCount + (tierCount + 1) / 2;
   const buySell    = getBuySellClass(myAvgRank, mktRank);
 
-  const rankChipsHtml = (myRank || mktRank) ? `
+  const ovrRank = mktEntry?.overallRank;
+  const rankChipsHtml = (myRank || mktRank || ovrRank) ? `
     <div class="rank-chips">
-      ${myRank  ? `<span class="rank-chip rank-mine"   title="My ${p.position} rank">#${myRank}</span>` : ''}
-      ${mktRank ? `<span class="rank-chip rank-market" title="FC ${p.position} rank">#${mktRank}</span>` : ''}
+      ${myRank  ? `<span class="rank-chip rank-mine"    title="My ${p.position} rank">#${myRank}</span>` : ''}
+      ${mktRank ? `<span class="rank-chip rank-market"  title="FC ${p.position} rank">#${mktRank}</span>` : ''}
+      ${ovrRank ? `<span class="rank-chip rank-overall" title="FC overall rank">#${ovrRank}</span>` : ''}
     </div>` : '';
 
   const card = document.createElement('div');
@@ -1122,7 +1126,7 @@ function closeSetsDropdown() {
 function setViewMode(viewOnly, isOwner = false) {
   isViewOnly       = viewOnly;
   activeSetIsOwner = isOwner;
-  const myIds    = ['export-btn', 'import-btn', 'add-player-btn', 'add-tier-btn-top'];
+  const myIds    = ['export-btn', 'import-btn', 'add-player-btn', 'add-tier-btn-top', 'my-share-btn'];
   const alwaysSet = ['set-export-btn', 'back-btn'];
   const ownerOnly = ['set-overwrite-btn', 'set-delete-btn', 'set-share-btn'];
   myIds.forEach(id     => document.getElementById(id).classList.toggle('hidden', viewOnly));
@@ -1133,12 +1137,21 @@ function setViewMode(viewOnly, isOwner = false) {
 
 async function openSet(id) {
   try {
-    const d = await api('GET', `/api/myranks/sets/${id}/data`);
+    let d, displayName;
+    if (typeof id === 'string' && id.startsWith('primary:')) {
+      const ownerId = id.slice(8);
+      d = await api('GET', `/api/myranks/data?owner_id=${encodeURIComponent(ownerId)}`);
+      displayName = d.owner_name ? `${d.owner_name}'s Rankings` : 'Shared Rankings';
+      d.is_owner  = false;
+    } else {
+      d = await api('GET', `/api/myranks/sets/${id}/data`);
+      displayName = d.name;
+    }
     activeSetId    = id;
     state.rankings = d.rankings || [];
-    state.picks    = [];
+    state.picks    = d.picks    || [];
     state.maxTier  = Math.max(1, ...state.rankings.map(r => r.tier));
-    document.getElementById('toolbar-title').textContent = d.name;
+    document.getElementById('toolbar-title').textContent = displayName;
     setViewMode(true, !!d.is_owner);
     renderGrid();
     renderSetsDropdown();
@@ -1201,10 +1214,17 @@ function openOverwriteImport() {
 
 // ── Share management ──────────────────────────────────────────────────────────
 
+function shareEndpoint() {
+  return activeSetId === null
+    ? '/api/myranks/shares'
+    : `/api/myranks/sets/${activeSetId}/shares`;
+}
+
 async function openShareModal() {
-  if (!activeSetId || !activeSetIsOwner) return;
-  const s = savedSets.find(s => s.id === activeSetId);
-  document.getElementById('share-modal-title').textContent = `Share: ${s?.name || ''}`;
+  const isMyPrimary = (activeSetId === null);
+  if (!isMyPrimary && !activeSetIsOwner) return;
+  const name = isMyPrimary ? 'My Rankings' : (savedSets.find(s => s.id === activeSetId)?.name || '');
+  document.getElementById('share-modal-title').textContent = `Share: ${name}`;
   document.getElementById('share-email').value = '';
   document.getElementById('share-err').style.display  = 'none';
   document.getElementById('share-info').style.display = 'none';
@@ -1212,7 +1232,7 @@ async function openShareModal() {
   renderShareList();
   openModal('share-modal');
   try {
-    const d = await api('GET', `/api/myranks/sets/${activeSetId}/shares`);
+    const d = await api('GET', shareEndpoint());
     currentShares = d.shares || [];
     renderShareList();
   } catch (e) {
@@ -1243,7 +1263,7 @@ async function addShare() {
   errEl.style.display = 'none'; infoEl.style.display = 'none';
   if (!email) { errEl.textContent = 'Enter an email address'; errEl.style.display = 'block'; return; }
   try {
-    const d = await api('POST', `/api/myranks/sets/${activeSetId}/shares`, { email });
+    const d = await api('POST', shareEndpoint(), { email });
     currentShares.push(d.user);
     renderShareList();
     document.getElementById('share-email').value = '';
@@ -1256,8 +1276,11 @@ async function addShare() {
 }
 
 async function removeShare(userId) {
+  const endpoint = activeSetId === null
+    ? `/api/myranks/shares/${userId}`
+    : `/api/myranks/sets/${activeSetId}/shares/${userId}`;
   try {
-    await api('DELETE', `/api/myranks/sets/${activeSetId}/shares/${userId}`);
+    await api('DELETE', endpoint);
     currentShares = currentShares.filter(s => s.id !== userId);
     renderShareList();
   } catch (e) {
@@ -1433,6 +1456,7 @@ async function boot() {
   document.getElementById('set-export-btn').addEventListener('click', exportCSV);
   document.getElementById('set-overwrite-btn').addEventListener('click', openOverwriteImport);
   document.getElementById('set-delete-btn').addEventListener('click', deleteActiveSet);
+  document.getElementById('my-share-btn').addEventListener('click', openShareModal);
   document.getElementById('set-share-btn').addEventListener('click', openShareModal);
   document.getElementById('back-btn').addEventListener('click', backToMyRankings);
   document.getElementById('sets-dropdown-btn').addEventListener('click', e => {
