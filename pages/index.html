@@ -317,6 +317,23 @@ body::before {
 .notif.show { opacity: 1; transform: translateY(0); }
 .notif.err { background: var(--red); }
 
+/* ── Share list ── */
+.share-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 7px 10px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 2px;
+  margin-bottom: 6px; font-family: 'Crimson Text', serif; font-size: 0.88rem;
+  color: var(--parchment);
+}
+.share-item-empty {
+  font-family: 'Crimson Text', serif; font-style: italic; font-size: 0.82rem;
+  color: var(--brown-light); padding: 4px 0 10px;
+}
+.dropdown-section-label {
+  font-family: 'Rye', serif; font-size: 0.42rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--brown-light); padding: 6px 14px 2px;
+}
+
 /* ── Dropdown ── */
 .dropdown { position: relative; }
 .dropdown-menu {
@@ -386,6 +403,7 @@ body::before {
       <button class="btn btn-sm btn-ghost hidden" id="set-export-btn">&#8595; Export CSV</button>
       <button class="btn btn-sm btn-ghost hidden" id="set-overwrite-btn">&#8593; Overwrite</button>
       <button class="btn btn-sm btn-danger hidden" id="set-delete-btn">Delete</button>
+      <button class="btn btn-sm btn-ghost hidden" id="set-share-btn">Share</button>
       <button class="btn btn-sm btn-ghost hidden" id="back-btn">&#8592; My Rankings</button>
       <!-- Other rankings dropdown (always visible) -->
       <div class="dropdown" id="sets-dropdown-wrap">
@@ -472,6 +490,26 @@ body::before {
   </div>
 </div>
 
+<!-- Share Modal -->
+<div id="share-modal" class="modal-overlay">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('share-modal')">&times;</button>
+    <div class="modal-title" id="share-modal-title">Share Rankings</div>
+    <label class="modal-label">Shared With</label>
+    <div id="share-list"></div>
+    <label class="modal-label" style="margin-top:16px;">Add Person</label>
+    <div style="display:flex;gap:8px;align-items:flex-start;">
+      <input type="email" id="share-email" class="modal-field" placeholder="Email address" style="flex:1;margin-bottom:0;" />
+      <button class="btn btn-sm" style="flex-shrink:0;" onclick="addShare()">Share</button>
+    </div>
+    <div class="modal-err" id="share-err" style="margin-top:10px;"></div>
+    <div class="modal-info" id="share-info" style="margin-top:10px;"></div>
+    <div class="modal-actions" style="margin-top:20px;">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('share-modal')">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- Notification toast -->
 <div class="notif" id="notif"></div>
 
@@ -506,10 +544,13 @@ let nameToAge      = {};  // normName → decimal age (from Sleeper, weekly cach
 let nameToMktRank  = {};  // normName → { positionRank, position } (from FC, daily cache)
 let myPosRanks     = {};  // player_name → my positional rank (computed from state.rankings)
 
-let activeSetId  = null;  // null = own rankings; integer = named set id
-let savedSets    = [];    // [{id, name, updated_at, player_count}]
-let isViewOnly   = false; // true when browsing a named set
-let importMode   = 'my';  // 'my' | 'new' | 'overwrite'
+let activeSetId      = null;  // null = own rankings; integer = named set id
+let savedSets        = [];    // own named sets [{id, name, updated_at, player_count}]
+let sharedWithMeSets = [];    // sets shared with me [{id, name, owner_name, ...}]
+let isViewOnly       = false; // true when browsing a named set
+let activeSetIsOwner = false; // true when viewing a set you own
+let currentShares    = [];    // [{id, name, email}] — shares for active set (owner only)
+let importMode       = 'my';  // 'my' | 'new' | 'overwrite'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1026,9 +1067,10 @@ async function submitAddPlayer() {
 async function loadSets() {
   try {
     const d = await api('GET', '/api/myranks/sets');
-    savedSets = d.sets || [];
+    savedSets        = d.sets       || [];
+    sharedWithMeSets = d.sharedSets || [];
   } catch (_) {
-    savedSets = [];
+    savedSets = []; sharedWithMeSets = [];
   }
   renderSetsDropdown();
 }
@@ -1037,34 +1079,36 @@ function renderSetsDropdown() {
   const menu = document.getElementById('sets-dropdown-menu');
   menu.innerHTML = '';
 
-  const myItem = document.createElement('div');
-  myItem.className = 'dropdown-item' + (activeSetId === null ? ' active' : '');
-  myItem.textContent = (activeSetId === null ? '✓ ' : '') + 'My Rankings';
-  myItem.onclick = () => { backToMyRankings(); closeSetsDropdown(); };
-  menu.appendChild(myItem);
+  const addItem = (text, isActive, onClick, extraClass = '') => {
+    const el = document.createElement('div');
+    el.className = 'dropdown-item' + (isActive ? ' active' : '') + (extraClass ? ' ' + extraClass : '');
+    el.textContent = (isActive ? '✓ ' : '') + text;
+    el.onclick = onClick;
+    menu.appendChild(el);
+  };
+  const addDivider = () => { const d = document.createElement('div'); d.className = 'dropdown-divider'; menu.appendChild(d); };
+  const addLabel = text => { const l = document.createElement('div'); l.className = 'dropdown-section-label'; l.textContent = text; menu.appendChild(l); };
+
+  addItem('My Rankings', activeSetId === null, () => { backToMyRankings(); closeSetsDropdown(); });
 
   if (savedSets.length > 0) {
-    const divider = document.createElement('div');
-    divider.className = 'dropdown-divider';
-    menu.appendChild(divider);
+    addDivider();
     for (const s of savedSets) {
-      const item = document.createElement('div');
-      item.className = 'dropdown-item' + (activeSetId === s.id ? ' active' : '');
-      item.textContent = (activeSetId === s.id ? '✓ ' : '') + s.name;
-      item.onclick = () => { openSet(s.id); closeSetsDropdown(); };
-      menu.appendChild(item);
+      addItem(s.name, activeSetId === s.id, () => { openSet(s.id); closeSetsDropdown(); });
     }
   }
 
-  const divider2 = document.createElement('div');
-  divider2.className = 'dropdown-divider';
-  menu.appendChild(divider2);
+  if (sharedWithMeSets.length > 0) {
+    addDivider();
+    addLabel('Shared with Me');
+    for (const s of sharedWithMeSets) {
+      const label = s.owner_name ? `${s.name} — ${s.owner_name}` : s.name;
+      addItem(label, activeSetId === s.id, () => { openSet(s.id); closeSetsDropdown(); });
+    }
+  }
 
-  const addItem = document.createElement('div');
-  addItem.className = 'dropdown-item add-new';
-  addItem.textContent = '＋ Add Rankings';
-  addItem.onclick = () => { openNewSetImport(); closeSetsDropdown(); };
-  menu.appendChild(addItem);
+  addDivider();
+  addItem('＋ Add Rankings', false, () => { openNewSetImport(); closeSetsDropdown(); }, 'add-new');
 }
 
 function toggleSetsDropdown() {
@@ -1075,24 +1119,27 @@ function closeSetsDropdown() {
   document.getElementById('sets-dropdown-menu').classList.add('hidden');
 }
 
-function setViewMode(viewOnly) {
-  isViewOnly = viewOnly;
-  const myIds  = ['export-btn', 'import-btn', 'add-player-btn', 'add-tier-btn-top'];
-  const setIds = ['set-export-btn', 'set-overwrite-btn', 'set-delete-btn', 'back-btn'];
-  myIds.forEach(id  => document.getElementById(id).classList.toggle('hidden', viewOnly));
-  setIds.forEach(id => document.getElementById(id).classList.toggle('hidden', !viewOnly));
+function setViewMode(viewOnly, isOwner = false) {
+  isViewOnly       = viewOnly;
+  activeSetIsOwner = isOwner;
+  const myIds    = ['export-btn', 'import-btn', 'add-player-btn', 'add-tier-btn-top'];
+  const alwaysSet = ['set-export-btn', 'back-btn'];
+  const ownerOnly = ['set-overwrite-btn', 'set-delete-btn', 'set-share-btn'];
+  myIds.forEach(id     => document.getElementById(id).classList.toggle('hidden', viewOnly));
+  alwaysSet.forEach(id => document.getElementById(id).classList.toggle('hidden', !viewOnly));
+  ownerOnly.forEach(id => document.getElementById(id).classList.toggle('hidden', !(viewOnly && isOwner)));
   document.querySelector('.picks-panel').classList.toggle('hidden', viewOnly);
 }
 
 async function openSet(id) {
   try {
     const d = await api('GET', `/api/myranks/sets/${id}/data`);
-    activeSetId   = id;
+    activeSetId    = id;
     state.rankings = d.rankings || [];
     state.picks    = [];
     state.maxTier  = Math.max(1, ...state.rankings.map(r => r.tier));
     document.getElementById('toolbar-title').textContent = d.name;
-    setViewMode(true);
+    setViewMode(true, !!d.is_owner);
     renderGrid();
     renderSetsDropdown();
   } catch (e) {
@@ -1102,7 +1149,7 @@ async function openSet(id) {
 
 function backToMyRankings() {
   if (!isViewOnly) return;
-  activeSetId = null;
+  activeSetId = null; activeSetIsOwner = false;
   document.getElementById('toolbar-title').textContent = 'Tier Board';
   setViewMode(false);
   loadData().then(renderGrid);
@@ -1110,7 +1157,7 @@ function backToMyRankings() {
 }
 
 async function deleteActiveSet() {
-  if (!activeSetId) return;
+  if (!activeSetId || !activeSetIsOwner) return;
   const s = savedSets.find(s => s.id === activeSetId);
   if (!confirm(`Delete "${s?.name || 'this set'}"? This cannot be undone.`)) return;
   try {
@@ -1138,7 +1185,7 @@ function openNewSetImport() {
 }
 
 function openOverwriteImport() {
-  if (!activeSetId) return;
+  if (!activeSetId || !activeSetIsOwner) return;
   importMode = 'overwrite';
   const s = savedSets.find(s => s.id === activeSetId);
   document.getElementById('import-modal-title').textContent = `Overwrite: ${s?.name || ''}`;
@@ -1150,6 +1197,72 @@ function openOverwriteImport() {
   document.getElementById('import-confirm-btn').textContent = 'Overwrite';
   pendingImport = null;
   openModal('import-modal');
+}
+
+// ── Share management ──────────────────────────────────────────────────────────
+
+async function openShareModal() {
+  if (!activeSetId || !activeSetIsOwner) return;
+  const s = savedSets.find(s => s.id === activeSetId);
+  document.getElementById('share-modal-title').textContent = `Share: ${s?.name || ''}`;
+  document.getElementById('share-email').value = '';
+  document.getElementById('share-err').style.display  = 'none';
+  document.getElementById('share-info').style.display = 'none';
+  currentShares = [];
+  renderShareList();
+  openModal('share-modal');
+  try {
+    const d = await api('GET', `/api/myranks/sets/${activeSetId}/shares`);
+    currentShares = d.shares || [];
+    renderShareList();
+  } catch (e) {
+    showNotif('Failed to load shares: ' + e.message, true);
+  }
+}
+
+function renderShareList() {
+  const listEl = document.getElementById('share-list');
+  listEl.innerHTML = '';
+  if (currentShares.length === 0) {
+    listEl.innerHTML = '<div class="share-item-empty">Not shared with anyone yet</div>';
+    return;
+  }
+  for (const share of currentShares) {
+    const display = share.name ? `${esc(share.name)} (${esc(share.email)})` : esc(share.email);
+    const item = document.createElement('div');
+    item.className = 'share-item';
+    item.innerHTML = `<span>${display}</span><button class="btn btn-sm btn-danger" onclick="removeShare(${JSON.stringify(share.id)})">Remove</button>`;
+    listEl.appendChild(item);
+  }
+}
+
+async function addShare() {
+  const email  = document.getElementById('share-email').value.trim();
+  const errEl  = document.getElementById('share-err');
+  const infoEl = document.getElementById('share-info');
+  errEl.style.display = 'none'; infoEl.style.display = 'none';
+  if (!email) { errEl.textContent = 'Enter an email address'; errEl.style.display = 'block'; return; }
+  try {
+    const d = await api('POST', `/api/myranks/sets/${activeSetId}/shares`, { email });
+    currentShares.push(d.user);
+    renderShareList();
+    document.getElementById('share-email').value = '';
+    infoEl.textContent = `Shared with ${d.user.name || d.user.email}`;
+    infoEl.style.display = 'block';
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+async function removeShare(userId) {
+  try {
+    await api('DELETE', `/api/myranks/sets/${activeSetId}/shares/${userId}`);
+    currentShares = currentShares.filter(s => s.id !== userId);
+    renderShareList();
+  } catch (e) {
+    showNotif('Failed to remove: ' + e.message, true);
+  }
 }
 
 // ── CSV Export ────────────────────────────────────────────────────────────────
@@ -1320,6 +1433,7 @@ async function boot() {
   document.getElementById('set-export-btn').addEventListener('click', exportCSV);
   document.getElementById('set-overwrite-btn').addEventListener('click', openOverwriteImport);
   document.getElementById('set-delete-btn').addEventListener('click', deleteActiveSet);
+  document.getElementById('set-share-btn').addEventListener('click', openShareModal);
   document.getElementById('back-btn').addEventListener('click', backToMyRankings);
   document.getElementById('sets-dropdown-btn').addEventListener('click', e => {
     e.stopPropagation();
@@ -1357,9 +1471,11 @@ window.unassignPick    = unassignPick;
 window.removeTier      = removeTier;
 window.submitAddPlayer = submitAddPlayer;
 window.closeModal      = closeModal;
-window.deleteActiveSet = deleteActiveSet;
-window.backToMyRankings = backToMyRankings;
+window.deleteActiveSet    = deleteActiveSet;
+window.backToMyRankings   = backToMyRankings;
 window.toggleSetsDropdown = toggleSetsDropdown;
+window.addShare           = addShare;
+window.removeShare        = removeShare;
 
 boot();
 

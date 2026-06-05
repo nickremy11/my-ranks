@@ -184,16 +184,27 @@ async function handleListSets(request, env, cors) {
   const user = await getAuthUser(request, env);
   if (!user) return err('Not authenticated', 401, cors);
 
-  const res = await env.DB.prepare(
-    `SELECT s.id, s.name, s.created_at, s.updated_at, COUNT(p.player_name) AS player_count
-     FROM named_ranking_sets s
-     LEFT JOIN named_ranking_players p ON p.set_id = s.id
-     WHERE s.owner_user_id = ?
-     GROUP BY s.id
-     ORDER BY s.updated_at DESC`
-  ).bind(user.user_id).all();
+  const [ownedRes, sharedRes] = await Promise.all([
+    env.DB.prepare(
+      `SELECT s.id, s.name, s.created_at, s.updated_at, COUNT(p.player_name) AS player_count
+       FROM named_ranking_sets s
+       LEFT JOIN named_ranking_players p ON p.set_id = s.id
+       WHERE s.owner_user_id = ?
+       GROUP BY s.id ORDER BY s.updated_at DESC`
+    ).bind(user.user_id).all(),
+    env.DB.prepare(
+      `SELECT s.id, s.name, s.created_at, s.updated_at, COUNT(p.player_name) AS player_count,
+              u.name AS owner_name
+       FROM named_ranking_set_shares sh
+       JOIN named_ranking_sets s ON s.id = sh.set_id
+       LEFT JOIN named_ranking_players p ON p.set_id = s.id
+       LEFT JOIN users u ON u.id = s.owner_user_id
+       WHERE sh.shared_with_user_id = ?
+       GROUP BY s.id ORDER BY s.updated_at DESC`
+    ).bind(user.user_id).all(),
+  ]);
 
-  return json({ sets: res.results }, 200, cors);
+  return json({ sets: ownedRes.results, sharedSets: sharedRes.results }, 200, cors);
 }
 
 async function handleCreateSet(request, env, cors) {
@@ -238,15 +249,20 @@ async function handleGetSetData(request, env, cors, setId) {
   if (!user) return err('Not authenticated', 401, cors);
 
   const set = await env.DB.prepare(
-    'SELECT id, name FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
-  ).bind(setId, user.user_id).first();
+    `SELECT s.id, s.name, (s.owner_user_id = ?) AS is_owner
+     FROM named_ranking_sets s
+     WHERE s.id = ? AND (
+       s.owner_user_id = ? OR
+       EXISTS (SELECT 1 FROM named_ranking_set_shares sh WHERE sh.set_id = s.id AND sh.shared_with_user_id = ?)
+     )`
+  ).bind(user.user_id, setId, user.user_id, user.user_id).first();
   if (!set) return err('Set not found', 404, cors);
 
   const res = await env.DB.prepare(
     'SELECT player_name, team, position, tier FROM named_ranking_players WHERE set_id = ? ORDER BY tier, position, player_name'
   ).bind(setId).all();
 
-  return json({ id: set.id, name: set.name, rankings: res.results }, 200, cors);
+  return json({ id: set.id, name: set.name, is_owner: !!set.is_owner, rankings: res.results }, 200, cors);
 }
 
 async function handleOverwriteSet(request, env, cors, setId) {
@@ -303,6 +319,78 @@ async function handleDeleteSet(request, env, cors, setId) {
     env.DB.prepare('DELETE FROM named_ranking_players WHERE set_id = ?').bind(setId),
     env.DB.prepare('DELETE FROM named_ranking_sets WHERE id = ?').bind(setId),
   ]);
+
+  return json({ ok: true }, 200, cors);
+}
+
+// ── Set sharing ───────────────────────────────────────────────────────────────
+
+async function handleListShares(request, env, cors, setId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const set = await env.DB.prepare(
+    'SELECT id FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
+  ).bind(setId, user.user_id).first();
+  if (!set) return err('Set not found or not authorized', 403, cors);
+
+  const res = await env.DB.prepare(
+    `SELECT u.id, u.name, u.email, sh.created_at
+     FROM named_ranking_set_shares sh
+     JOIN users u ON u.id = sh.shared_with_user_id
+     WHERE sh.set_id = ? ORDER BY sh.created_at ASC`
+  ).bind(setId).all();
+
+  return json({ shares: res.results }, 200, cors);
+}
+
+async function handleCreateShare(request, env, cors, setId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const set = await env.DB.prepare(
+    'SELECT id FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
+  ).bind(setId, user.user_id).first();
+  if (!set) return err('Set not found or not authorized', 403, cors);
+
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON', 400, cors); }
+
+  const { email } = body ?? {};
+  if (!email || typeof email !== 'string') return err('email required', 400, cors);
+
+  const normalizedEmail = email.toLowerCase().trim();
+  if (normalizedEmail === user.email?.toLowerCase()) return err("Can't share with yourself", 400, cors);
+
+  const target = await env.DB.prepare(
+    'SELECT id, name, email FROM users WHERE email = ?'
+  ).bind(normalizedEmail).first();
+  if (!target) return err('No account found with that email', 404, cors);
+
+  const existing = await env.DB.prepare(
+    'SELECT 1 FROM named_ranking_set_shares WHERE set_id = ? AND shared_with_user_id = ?'
+  ).bind(setId, target.id).first();
+  if (existing) return err('Already shared with this user', 409, cors);
+
+  await env.DB.prepare(
+    'INSERT INTO named_ranking_set_shares (set_id, shared_with_user_id, created_at) VALUES (?, ?, ?)'
+  ).bind(setId, target.id, Date.now()).run();
+
+  return json({ ok: true, user: { id: target.id, name: target.name, email: target.email } }, 200, cors);
+}
+
+async function handleDeleteShare(request, env, cors, setId, sharedUserId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+
+  const set = await env.DB.prepare(
+    'SELECT id FROM named_ranking_sets WHERE id = ? AND owner_user_id = ?'
+  ).bind(setId, user.user_id).first();
+  if (!set) return err('Set not found or not authorized', 403, cors);
+
+  await env.DB.prepare(
+    'DELETE FROM named_ranking_set_shares WHERE set_id = ? AND shared_with_user_id = ?'
+  ).bind(setId, sharedUserId).run();
 
   return json({ ok: true }, 200, cors);
 }
@@ -402,6 +490,14 @@ export default {
       if (setMatch[2] === '/data' && method === 'GET') return handleGetSetData(request, env, cors, setId);
       if (!setMatch[2] && method === 'PUT')            return handleOverwriteSet(request, env, cors, setId);
       if (!setMatch[2] && method === 'DELETE')         return handleDeleteSet(request, env, cors, setId);
+    }
+    const sharesMatch = path.match(/^\/api\/myranks\/sets\/(\d+)\/shares(?:\/(.+))?$/);
+    if (sharesMatch) {
+      const setId = parseInt(sharesMatch[1], 10);
+      const sharedUserId = sharesMatch[2];
+      if (!sharedUserId && method === 'GET')    return handleListShares(request, env, cors, setId);
+      if (!sharedUserId && method === 'POST')   return handleCreateShare(request, env, cors, setId);
+      if (sharedUserId  && method === 'DELETE') return handleDeleteShare(request, env, cors, setId, sharedUserId);
     }
 
     return new Response('Not found', { status: 404 });
