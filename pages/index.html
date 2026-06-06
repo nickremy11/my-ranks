@@ -363,6 +363,60 @@ body::before {
     grid-template-columns: 70px 120px 1fr 1fr 1fr 1fr;
   }
 }
+
+/* ── View All Ranks ── */
+.var-modal-card { width: min(92vw, 1400px); max-width: min(92vw, 1400px); }
+.var-set-select { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.var-set-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--brown-mid);
+  border-radius: 2px; padding: 5px 10px; cursor: pointer;
+  font-family: 'Crimson Text', serif; font-size: 0.88rem; color: var(--parchment);
+  transition: border-color 0.12s; user-select: none;
+}
+.var-set-item:hover { border-color: var(--gold-light); }
+.var-set-item.selected { border-color: var(--gold); background: rgba(201,150,42,0.12); color: var(--gold-light); }
+.var-set-item input[type=checkbox] { accent-color: var(--gold); cursor: pointer; }
+.var-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.var-search {
+  flex: 1; min-width: 160px; background: rgba(255,255,255,0.06);
+  border: 1px solid var(--brown-mid); color: var(--cream);
+  font-family: 'Crimson Text', serif; font-size: 1rem;
+  padding: 7px 12px; border-radius: 2px; outline: none; transition: border-color 0.15s;
+}
+.var-search:focus { border-color: var(--gold); }
+.var-search::placeholder { color: rgba(255,255,255,0.3); font-style: italic; }
+.var-table-wrap { overflow: auto; max-height: calc(90vh - 340px); }
+.var-table { width: 100%; border-collapse: collapse; }
+.var-table th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--green); color: var(--gold-light);
+  font-family: 'Rye', serif; font-size: 0.44rem; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 9px 10px; text-align: left; white-space: nowrap;
+  cursor: pointer; user-select: none;
+  border-right: 1px solid rgba(255,255,255,0.08);
+}
+.var-table th:last-child { border-right: none; }
+.var-table th.sorted { background: #1a3a10; }
+.var-table th .sort-arr { margin-left: 3px; font-size: 0.5rem; opacity: 0.55; }
+.var-table th.sorted .sort-arr { opacity: 1; }
+.var-table td {
+  padding: 7px 10px; border-bottom: 1px dashed rgba(255,255,255,0.06);
+  color: var(--parchment); font-family: 'Crimson Text', serif; font-size: 0.92rem;
+}
+.var-table tr:last-child td { border-bottom: none; }
+.var-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+.var-rank-val { font-family: 'Playfair Display', serif !important; color: var(--cream) !important; text-align: right; }
+.var-rank-none { color: var(--brown-light) !important; font-style: italic; text-align: right; }
+.var-pos-badge {
+  display: inline-block; font-weight: 700; font-size: 0.82rem;
+  padding: 1px 6px; border-radius: 2px; min-width: 30px; text-align: center;
+  font-family: 'Crimson Text', serif;
+}
+.var-pos-QB { background: rgba(232,184,75,0.18); color: #e8b84b; }
+.var-pos-RB { background: rgba(92,184,92,0.18);  color: #5cb85c; }
+.var-pos-WR { background: rgba(91,192,222,0.18); color: #5bc0de; }
+.var-pos-TE { background: rgba(232,115,75,0.18); color: #e8734b; }
 </style>
 </head>
 <body>
@@ -407,6 +461,8 @@ body::before {
       <button class="btn btn-sm btn-danger hidden" id="set-delete-btn">Delete</button>
       <button class="btn btn-sm btn-ghost hidden" id="set-share-btn">Share</button>
       <button class="btn btn-sm btn-ghost hidden" id="back-btn">&#8592; My Rankings</button>
+      <!-- View All Ranks (always visible) -->
+      <button class="btn btn-sm btn-ghost" id="view-all-ranks-btn">&#9776; View All Ranks</button>
       <!-- Other rankings dropdown (always visible) -->
       <div class="dropdown" id="sets-dropdown-wrap">
         <button class="btn btn-sm" id="sets-dropdown-btn">Other Rankings &#9662;</button>
@@ -512,6 +568,30 @@ body::before {
   </div>
 </div>
 
+<!-- View All Ranks Modal -->
+<div id="var-modal" class="modal-overlay">
+  <div class="modal-card var-modal-card">
+    <button class="modal-close" onclick="closeModal('var-modal')">&times;</button>
+    <div class="modal-title">Compare Rankings</div>
+    <p class="modal-hint">Select 1–5 ranking sets to compare side by side.</p>
+    <div id="var-set-select" class="var-set-select"></div>
+    <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <button class="btn btn-sm" id="var-build-btn" onclick="vrBuildTable()" disabled>Build Table</button>
+      <span id="var-loading" class="hidden" style="font-family:'Crimson Text',serif;font-style:italic;font-size:0.88rem;color:var(--brown-light);">Loading…</span>
+    </div>
+    <div class="var-controls hidden" id="var-controls">
+      <input type="text" class="var-search" id="var-search" placeholder="Search player…" oninput="vrRenderTable()" />
+      <div id="var-pos-btns" style="display:flex;gap:5px;flex-shrink:0;"></div>
+    </div>
+    <div class="var-table-wrap hidden" id="var-table-wrap">
+      <table class="var-table">
+        <thead id="var-thead"></thead>
+        <tbody id="var-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Notification toast -->
 <div class="notif" id="notif"></div>
 
@@ -604,7 +684,7 @@ function getBuySellClass(myRank, marketRank) {
   if (Math.abs(diff) < 2) return '';
   const pct  = Math.abs(diff) / myRank * 100;
   if (pct >= 40) return diff > 0 ? 'card-strong-buy' : 'card-strong-sell';
-  if (pct >= 20) return diff > 0 ? 'card-buy'        : 'card-sell';
+  if (pct >= 25) return diff > 0 ? 'card-buy'        : 'card-sell';
   return '';
 }
 
@@ -1444,6 +1524,233 @@ function setupImportModal() {
   });
 }
 
+// ── View All Ranks ────────────────────────────────────────────────────────────
+
+const VR = {
+  available:   [],
+  selectedIds: [],
+  loadedData:  {},
+  sortCol:     0,
+  sortDir:     1,
+  search:      '',
+  positions:   new Set(['QB','RB','WR','TE']),
+  built:       false,
+};
+
+function vrIdKey(id) { return id === null ? '__my__' : String(id); }
+
+function openViewAllRanks() {
+  VR.available = [{ id: null, name: 'My Rankings' }];
+  for (const s of savedSets)        VR.available.push({ id: s.id, name: s.name });
+  for (const s of sharedWithMeSets) {
+    const label = s.owner_name ? `${s.name} — ${s.owner_name}` : s.name;
+    VR.available.push({ id: s.id, name: label });
+  }
+  VR.selectedIds = VR.available.slice(0, 5).map(s => s.id);
+  VR.loadedData  = {};
+  VR.built       = false;
+  VR.search      = '';
+  VR.positions   = new Set(['QB','RB','WR','TE']);
+  VR.sortCol     = 0;
+  VR.sortDir     = 1;
+  renderVRSetSelect();
+  document.getElementById('var-controls').classList.add('hidden');
+  document.getElementById('var-table-wrap').classList.add('hidden');
+  document.getElementById('var-loading').classList.add('hidden');
+  openModal('var-modal');
+}
+
+function renderVRSetSelect() {
+  const container = document.getElementById('var-set-select');
+  container.innerHTML = VR.available.map(s => {
+    const isSelected = VR.selectedIds.includes(s.id);
+    const atMax      = !isSelected && VR.selectedIds.length >= 5;
+    return `<label class="var-set-item${isSelected ? ' selected' : ''}">
+      <input type="checkbox" ${isSelected ? 'checked' : ''} ${atMax ? 'disabled' : ''}
+             onchange="vrToggleSet(${JSON.stringify(s.id)}, this.checked)" />
+      ${esc(s.name)}
+    </label>`;
+  }).join('');
+  const btn = document.getElementById('var-build-btn');
+  if (btn) btn.disabled = VR.selectedIds.length === 0;
+}
+
+function vrToggleSet(id, checked) {
+  if (checked) {
+    if (VR.selectedIds.length >= 5) return;
+    VR.selectedIds.push(id);
+  } else {
+    VR.selectedIds = VR.selectedIds.filter(x => x !== id);
+  }
+  renderVRSetSelect();
+}
+
+async function vrBuildTable() {
+  const btn    = document.getElementById('var-build-btn');
+  const loadEl = document.getElementById('var-loading');
+  btn.disabled = true;
+  loadEl.classList.remove('hidden');
+  try {
+    for (const id of VR.selectedIds) {
+      const key = vrIdKey(id);
+      if (VR.loadedData[key]) continue;
+      let rankings;
+      if (id === null) {
+        const d = await api('GET', '/api/myranks/data');
+        rankings = d.rankings || [];
+      } else if (typeof id === 'string' && id.startsWith('primary:')) {
+        const ownerId = id.slice(8);
+        const d = await api('GET', `/api/myranks/data?owner_id=${encodeURIComponent(ownerId)}`);
+        rankings = d.rankings || [];
+      } else {
+        const d = await api('GET', `/api/myranks/sets/${id}/data`);
+        rankings = d.rankings || [];
+      }
+      const info = VR.available.find(s => s.id === id);
+      VR.loadedData[key] = { name: info?.name || String(id), rankings };
+    }
+    VR.built   = true;
+    VR.sortCol = 0;
+    VR.sortDir = 1;
+    VR.search  = '';
+    VR.positions = new Set(['QB','RB','WR','TE']);
+    document.getElementById('var-search').value = '';
+    renderVRPosBtns();
+    document.getElementById('var-controls').classList.remove('hidden');
+    document.getElementById('var-table-wrap').classList.remove('hidden');
+    vrRenderTable();
+  } catch (e) {
+    showNotif('Failed to load: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    loadEl.classList.add('hidden');
+  }
+}
+
+function vrComputeAvgRanks(rankings) {
+  const tierCounts = {};
+  for (const r of rankings) tierCounts[r.tier] = (tierCounts[r.tier] || 0) + 1;
+  const tiers = Object.keys(tierCounts).map(Number).sort((a, b) => a - b);
+  const result = {};
+  let rank = 1;
+  for (const tier of tiers) {
+    const count = tierCounts[tier];
+    result[tier] = rank + (count - 1) / 2;
+    rank += count;
+  }
+  return result;
+}
+
+function renderVRPosBtns() {
+  const container = document.getElementById('var-pos-btns');
+  container.innerHTML = ['QB','RB','WR','TE'].map(pos =>
+    `<button class="pos-pill${VR.positions.has(pos) ? ' active' : ''}" onclick="vrTogglePos('${pos}')">${pos}</button>`
+  ).join('');
+}
+
+function vrTogglePos(pos) {
+  if (VR.positions.has(pos)) {
+    if (VR.positions.size === 1) return;
+    VR.positions.delete(pos);
+  } else {
+    VR.positions.add(pos);
+  }
+  renderVRPosBtns();
+  vrRenderTable();
+}
+
+function vrFormatRank(r) {
+  return r % 1 === 0 ? String(r) : r.toFixed(1);
+}
+
+function vrRenderTable() {
+  if (!VR.built) return;
+  const thead  = document.getElementById('var-thead');
+  const tbody  = document.getElementById('var-tbody');
+  const search = (document.getElementById('var-search')?.value || '').trim().toLowerCase();
+  VR.search = search;
+
+  const sets      = VR.selectedIds.map(id => VR.loadedData[vrIdKey(id)]).filter(Boolean);
+  const avgMaps   = sets.map(s => vrComputeAvgRanks(s.rankings));
+
+  // Build union of all players
+  const playerMap = {};
+  for (let i = 0; i < sets.length; i++) {
+    for (const r of sets[i].rankings) {
+      if (!playerMap[r.player_name]) {
+        playerMap[r.player_name] = {
+          player_name: r.player_name,
+          position:    r.position,
+          ranks:       new Array(sets.length).fill(null),
+          fcRank:      nameToMktRank[normName(r.player_name)]?.overallRank ?? null,
+        };
+      }
+      playerMap[r.player_name].ranks[i] = avgMaps[i][r.tier] ?? null;
+    }
+  }
+
+  // Filter
+  let rows = Object.values(playerMap).filter(row => {
+    if (!VR.positions.has(row.position)) return false;
+    if (VR.search && !row.player_name.toLowerCase().includes(VR.search)) return false;
+    return true;
+  });
+
+  // Sort (nulls always last regardless of direction)
+  rows.sort((a, b) => {
+    if (VR.sortCol === 'name') return VR.sortDir * a.player_name.localeCompare(b.player_name);
+    if (VR.sortCol === 'pos')  return VR.sortDir * a.position.localeCompare(b.position);
+    const nullVal = VR.sortDir === 1 ? Infinity : -Infinity;
+    if (VR.sortCol === 'fc') {
+      const ar = a.fcRank ?? nullVal, br = b.fcRank ?? nullVal;
+      return VR.sortDir * (ar - br);
+    }
+    const idx = VR.sortCol;
+    const ar = a.ranks[idx] ?? nullVal, br = b.ranks[idx] ?? nullVal;
+    return VR.sortDir * (ar - br);
+  });
+
+  // Header
+  const cols = [
+    { key: 'name', lbl: 'Player'     },
+    { key: 'pos',  lbl: 'Pos'        },
+    ...sets.map((s, i) => ({ key: i, lbl: s.name })),
+    { key: 'fc',   lbl: 'FC Overall' },
+  ];
+  thead.innerHTML = `<tr>${cols.map(c => {
+    const sorted = VR.sortCol === c.key;
+    const arr    = sorted ? (VR.sortDir === 1 ? '▲' : '▼') : '·';
+    return `<th class="${sorted ? 'sorted' : ''}" onclick="vrSort(${JSON.stringify(c.key)})">${esc(c.lbl)}<span class="sort-arr">${arr}</span></th>`;
+  }).join('')}</tr>`;
+
+  // Body
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${cols.length}" style="padding:20px;text-align:center;font-style:italic;color:var(--brown-light);">No players match current filters</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => {
+    const rankCells = row.ranks.map(r =>
+      r != null
+        ? `<td class="var-rank-val">${vrFormatRank(r)}</td>`
+        : `<td class="var-rank-none">—</td>`
+    ).join('');
+    const fcCell = row.fcRank != null
+      ? `<td class="var-rank-val">${row.fcRank}</td>`
+      : `<td class="var-rank-none">—</td>`;
+    return `<tr>
+      <td>${esc(row.player_name)}</td>
+      <td><span class="var-pos-badge var-pos-${esc(row.position)}">${esc(row.position)}</span></td>
+      ${rankCells}${fcCell}
+    </tr>`;
+  }).join('');
+}
+
+function vrSort(col) {
+  VR.sortCol = VR.sortCol === col ? (VR.sortDir *= -1, col) : (VR.sortDir = 1, col);
+  vrRenderTable();
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 async function boot() {
@@ -1496,6 +1803,7 @@ async function boot() {
   document.getElementById('add-player-btn').addEventListener('click', openAddPlayerModal);
   document.getElementById('add-tier-btn-top').addEventListener('click', addTier);
   document.getElementById('add-tier-btn-bottom').addEventListener('click', addTier);
+  document.getElementById('view-all-ranks-btn').addEventListener('click', openViewAllRanks);
 
   // Click outside to close modals
   document.querySelectorAll('.modal-overlay').forEach(el => {
@@ -1516,6 +1824,11 @@ window.backToMyRankings   = backToMyRankings;
 window.toggleSetsDropdown = toggleSetsDropdown;
 window.addShare           = addShare;
 window.removeShare        = removeShare;
+window.openViewAllRanks   = openViewAllRanks;
+window.vrToggleSet        = vrToggleSet;
+window.vrBuildTable       = vrBuildTable;
+window.vrTogglePos        = vrTogglePos;
+window.vrSort             = vrSort;
 
 boot();
 
