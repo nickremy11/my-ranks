@@ -228,7 +228,7 @@ body::before {
   font-family: 'Crimson Text', serif; font-size: 0.85rem; font-weight: 600;
   color: var(--ink); flex: 1; line-height: 1.2;
 }
-.player-age { font-size: 0.72em; color: var(--brown-light); font-weight: 400; }
+.player-age { font-size: 0.82em; color: var(--parchment); font-weight: 600; opacity: 0.75; }
 .player-team {
   font-family: 'Crimson Text', serif; font-size: 0.7rem; color: var(--brown-light);
   flex-shrink: 0;
@@ -1087,7 +1087,24 @@ async function removeTier(tier) {
     state.picks    = state.picks.filter(p => p.tier !== tier);
   }
 
-  removedTiers.add(tier);
+  // Renumber all tiers above the deleted one down by 1
+  const playersToShift = state.rankings.filter(r => r.tier > tier);
+  const picksToShift   = state.picks.filter(p => p.tier > tier);
+  if (playersToShift.length > 0 || picksToShift.length > 0) {
+    try {
+      await Promise.all([
+        ...playersToShift.map(r => api('PATCH', '/api/myranks/player', { player_name: r.player_name, tier: r.tier - 1 })),
+        ...picksToShift.map(p => api('PATCH', '/api/myranks/pick',    { pick_name:   p.pick_name,   tier: p.tier - 1 })),
+      ]);
+    } catch (e) {
+      showNotif('Failed to renumber tiers: ' + e.message, true);
+      return;
+    }
+    for (const r of state.rankings) if (r.tier > tier) r.tier--;
+    for (const p of state.picks)    if (p.tier > tier) p.tier--;
+  }
+
+  state.maxTier = Math.max(1, state.maxTier - 1);
   renderGrid();
 }
 
