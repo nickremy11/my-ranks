@@ -630,8 +630,9 @@ let removedTiers     = new Set(); // tiers explicitly deleted (survives re-rende
 let activeSetId      = null;  // null = own rankings; integer = named set id
 let savedSets        = [];    // own named sets [{id, name, updated_at, player_count}]
 let sharedWithMeSets = [];    // sets shared with me [{id, name, owner_name, ...}]
-let isViewOnly       = false; // true when browsing a named set
+let isViewOnly       = false; // true when browsing a named set (read-only toolbar layout)
 let activeSetIsOwner = false; // true when viewing a set you own
+let isEditable       = true;  // true for primary rankings OR a named set you own — gates board edits
 let currentShares    = [];    // [{id, name, email}] — shares for active set (owner only)
 let importMode       = 'my';  // 'my' | 'new' | 'overwrite'
 
@@ -794,7 +795,7 @@ function renderGrid() {
   // Populate tier dropdown in Add Player modal
   populateTierDropdown();
 
-  document.querySelector('.add-tier-wrap').classList.toggle('hidden', isViewOnly);
+  document.querySelector('.add-tier-wrap').classList.toggle('hidden', !isEditable);
 }
 
 function buildTierRow(tier, avgRank) {
@@ -805,7 +806,7 @@ function buildTierRow(tier, avgRank) {
   // Tier info cell
   const infoCell = document.createElement('div');
   infoCell.className = 'tier-info';
-  const canRemove = !isViewOnly;
+  const canRemove = isEditable;
   infoCell.innerHTML = `
     <div>
       <div class="tier-label">Tier ${tier}</div>
@@ -879,7 +880,7 @@ function buildPlayerCard(p) {
       </div>
       ${rankChipsHtml}
     </div>
-    ${!isViewOnly ? `<button class="player-remove" title="Remove player" onclick="removePlayer(${JSON.stringify(p.player_name)})">&#x2715;</button>` : ''}
+    ${isEditable ? `<button class="player-remove" title="Remove player" onclick="removePlayer(${JSON.stringify(p.player_name)})">&#x2715;</button>` : ''}
   `;
   return card;
 }
@@ -912,7 +913,7 @@ function renderUnassignedPicks() {
 // ── SortableJS initialization ─────────────────────────────────────────────────
 
 function initSortables() {
-  if (isViewOnly) return;
+  if (!isEditable) return;
   // Player lists (one per tier×position cell)
   document.querySelectorAll('.player-list').forEach(el => {
     const s = Sortable.create(el, {
@@ -930,7 +931,9 @@ function initSortables() {
     sortables.push(s);
   });
 
-  // Picks lists: unassigned panel + each tier's picks cell
+  // Picks lists: unassigned panel + each tier's picks cell.
+  // Picks only exist on primary rankings — named sets store players only.
+  if (activeSetId !== null) return;
   const unassignedEl = document.getElementById('unassigned-picks');
   const uSort = Sortable.create(unassignedEl, {
     group:     { name: 'picks', pull: true, put: true },
@@ -993,6 +996,12 @@ function updateRankBadges() {
 
 // ── Action handlers ───────────────────────────────────────────────────────────
 
+// Persist the whole player list to the active named set (owned sets only have a
+// bulk-replace endpoint — no granular player/pick routes like primary rankings).
+async function saveSetRankings() {
+  await api('PUT', `/api/myranks/sets/${activeSetId}`, { players: state.rankings });
+}
+
 async function movePlayer(playerName, newTier) {
   const player = state.rankings.find(r => r.player_name === playerName);
   if (!player || player.tier === newTier) return;
@@ -1002,7 +1011,8 @@ async function movePlayer(playerName, newTier) {
   updateRankBadges();
   updateTierRemoveButtons();
   try {
-    await api('PATCH', '/api/myranks/player', { player_name: playerName, tier: newTier });
+    if (activeSetId !== null) await saveSetRankings();
+    else await api('PATCH', '/api/myranks/player', { player_name: playerName, tier: newTier });
   } catch (e) {
     player.tier = oldTier; // rollback
     updateAvgRankLabels();
@@ -1018,11 +1028,12 @@ async function removePlayer(playerName) {
   }
   renderGrid();
   try {
-    await api('DELETE', '/api/myranks/player', { player_name: playerName });
+    if (activeSetId !== null) await saveSetRankings();
+    else await api('DELETE', '/api/myranks/player', { player_name: playerName });
   } catch (e) {
     showNotif('Failed to remove player: ' + e.message, true);
-    await loadData();
-    renderGrid();
+    if (activeSetId !== null) await openSet(activeSetId);
+    else { await loadData(); renderGrid(); }
   }
 }
 
@@ -1077,11 +1088,13 @@ async function removeTier(tier) {
     if (tierPlayers.length) parts.push(`${tierPlayers.length} player${tierPlayers.length !== 1 ? 's' : ''}`);
     if (tierPicks.length)   parts.push(`${tierPicks.length} pick${tierPicks.length !== 1 ? 's' : ''}`);
     if (!confirm(`Delete Tier ${tier}? This will also remove ${parts.join(' and ')}.`)) return;
-    try {
-      await api('DELETE', '/api/myranks/tier', { tier });
-    } catch (e) {
-      showNotif('Failed to delete tier: ' + e.message, true);
-      return;
+    if (activeSetId === null) {
+      try {
+        await api('DELETE', '/api/myranks/tier', { tier });
+      } catch (e) {
+        showNotif('Failed to delete tier: ' + e.message, true);
+        return;
+      }
     }
     state.rankings = state.rankings.filter(r => r.tier !== tier);
     state.picks    = state.picks.filter(p => p.tier !== tier);
@@ -1091,14 +1104,16 @@ async function removeTier(tier) {
   const playersToShift = state.rankings.filter(r => r.tier > tier);
   const picksToShift   = state.picks.filter(p => p.tier > tier);
   if (playersToShift.length > 0 || picksToShift.length > 0) {
-    try {
-      await Promise.all([
-        ...playersToShift.map(r => api('PATCH', '/api/myranks/player', { player_name: r.player_name, tier: r.tier - 1 })),
-        ...picksToShift.map(p => api('PATCH', '/api/myranks/pick',    { pick_name:   p.pick_name,   tier: p.tier - 1 })),
-      ]);
-    } catch (e) {
-      showNotif('Failed to renumber tiers: ' + e.message, true);
-      return;
+    if (activeSetId === null) {
+      try {
+        await Promise.all([
+          ...playersToShift.map(r => api('PATCH', '/api/myranks/player', { player_name: r.player_name, tier: r.tier - 1 })),
+          ...picksToShift.map(p => api('PATCH', '/api/myranks/pick',    { pick_name:   p.pick_name,   tier: p.tier - 1 })),
+        ]);
+      } catch (e) {
+        showNotif('Failed to renumber tiers: ' + e.message, true);
+        return;
+      }
     }
     for (const r of state.rankings) if (r.tier > tier) r.tier--;
     for (const p of state.picks)    if (p.tier > tier) p.tier--;
@@ -1106,6 +1121,15 @@ async function removeTier(tier) {
 
   state.maxTier = Math.max(1, state.maxTier - 1);
   renderGrid();
+
+  if (activeSetId !== null) {
+    try {
+      await saveSetRankings();
+    } catch (e) {
+      showNotif('Failed to save tier change: ' + e.message, true);
+      await openSet(activeSetId);
+    }
+  }
 }
 
 function addTier() {
@@ -1116,7 +1140,7 @@ function addTier() {
 }
 
 function updateTierRemoveButtons() {
-  if (isViewOnly) return;
+  if (!isEditable) return;
   document.querySelectorAll('.tier-row').forEach(row => {
     const tier = parseInt(row.dataset.tier, 10);
     if (!row.querySelector('.tier-remove')) {
@@ -1167,13 +1191,16 @@ async function submitAddPlayer() {
   if (!pos)  { errEl.textContent = 'Position is required';   errEl.style.display = 'block'; return; }
 
   try {
-    await api('POST', '/api/myranks/add-player', { player_name: name, team, position: pos, tier });
     state.rankings.push({ player_name: name, team, position: pos, tier });
     state.maxTier = Math.max(state.maxTier, tier);
+    if (activeSetId !== null) await saveSetRankings();
+    else await api('POST', '/api/myranks/add-player', { player_name: name, team, position: pos, tier });
     closeModal('add-player-modal');
     renderGrid();
     showNotif(`${name} added to Tier ${tier}`);
   } catch (e) {
+    // rollback optimistic push on failure
+    state.rankings = state.rankings.filter(r => !(r.player_name === name && r.tier === tier && r.position === pos));
     errEl.textContent = e.message;
     errEl.style.display = 'block';
   }
@@ -1239,12 +1266,16 @@ function closeSetsDropdown() {
 function setViewMode(viewOnly, isOwner = false) {
   isViewOnly       = viewOnly;
   activeSetIsOwner = isOwner;
-  const myIds    = ['export-btn', 'import-btn', 'add-player-btn', 'add-tier-btn-top', 'my-share-btn'];
+  isEditable       = !viewOnly || isOwner; // primary rankings OR a set you own
+  const myIds    = ['export-btn', 'import-btn', 'my-share-btn'];   // primary-only controls
+  const editIds  = ['add-player-btn', 'add-tier-btn-top'];        // board-edit controls (primary + owned sets)
   const alwaysSet = ['set-export-btn', 'back-btn'];
   const ownerOnly = ['set-overwrite-btn', 'set-delete-btn', 'set-share-btn'];
   myIds.forEach(id     => document.getElementById(id).classList.toggle('hidden', viewOnly));
+  editIds.forEach(id   => document.getElementById(id).classList.toggle('hidden', !isEditable));
   alwaysSet.forEach(id => document.getElementById(id).classList.toggle('hidden', !viewOnly));
   ownerOnly.forEach(id => document.getElementById(id).classList.toggle('hidden', !(viewOnly && isOwner)));
+  // Picks only apply to primary rankings — keep the unassigned-picks panel hidden for any set.
   document.querySelector('.picks-panel').classList.toggle('hidden', viewOnly);
 }
 
