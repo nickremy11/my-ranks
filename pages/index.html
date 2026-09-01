@@ -391,7 +391,7 @@ body::before {
 .var-table th {
   position: sticky; top: 0; z-index: 2;
   background: var(--green); color: var(--gold-light);
-  font-family: 'Rye', serif; font-size: 0.44rem; letter-spacing: 0.18em; text-transform: uppercase;
+  font-family: 'Rye', serif; font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase;
   padding: 9px 10px; text-align: left; white-space: nowrap;
   cursor: pointer; user-select: none;
   border-right: 1px solid rgba(255,255,255,0.08);
@@ -400,14 +400,20 @@ body::before {
 .var-table th.sorted { background: #1a3a10; }
 .var-table th .sort-arr { margin-left: 3px; font-size: 0.5rem; opacity: 0.55; }
 .var-table th.sorted .sort-arr { opacity: 1; }
+/* Narrow, right-aligned numeric columns; header text may wrap so set-name columns stay tight */
+.var-table th.col-rank { text-align: right; white-space: normal; width: 62px; max-width: 86px; padding-left: 6px; padding-right: 12px; vertical-align: bottom; line-height: 1.15; }
+.var-table td.col-rank { text-align: right; white-space: nowrap; padding-left: 6px; padding-right: 12px; }
+.var-table th.col-pos, .var-table td.col-pos { text-align: center; width: 1%; white-space: nowrap; }
+.var-table th.col-name, .var-table td.col-name { white-space: nowrap; }
 .var-table td {
   padding: 7px 10px; border-bottom: 1px dashed rgba(255,255,255,0.06);
-  color: var(--parchment); font-family: 'Crimson Text', serif; font-size: 0.92rem;
+  color: var(--parchment); font-family: 'Crimson Text', serif; font-size: 0.96rem;
 }
 .var-table tr:last-child td { border-bottom: none; }
 .var-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
-.var-rank-val { font-family: 'Playfair Display', serif !important; color: var(--cream) !important; text-align: right; }
+.var-rank-val { font-family: 'Playfair Display', serif !important; color: var(--cream) !important; text-align: right; font-size: 1.04rem; font-variant-numeric: tabular-nums; }
 .var-rank-none { color: var(--brown-light) !important; font-style: italic; text-align: right; }
+.var-diff { font-family: 'Playfair Display', serif !important; font-variant-numeric: tabular-nums; text-align: right; }
 .var-pos-badge {
   display: inline-block; font-weight: 700; font-size: 0.82rem;
   padding: 1px 6px; border-radius: 2px; min-width: 30px; text-align: center;
@@ -647,6 +653,43 @@ function normName(s) {
     .replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/i, '')
     .replace(/[^a-z0-9 ]/g, '')
     .replace(/\s+/g, ' ');
+}
+
+// Common first-name nickname variants that point at the same player across ranking sets
+// (last-name collisions with a shared first-name stem are vanishingly rare in fantasy football).
+const NAME_NICKS = {
+  kenneth: 'ken', kenny: 'ken',
+  joshua: 'josh',
+  michael: 'mike',
+  robert: 'rob', bobby: 'rob',
+  william: 'will', bill: 'will', billy: 'will',
+  christopher: 'chris',
+  matthew: 'matt', matty: 'matt',
+  nathaniel: 'nate', nathan: 'nate',
+  cameron: 'cam',
+  benjamin: 'ben',
+  nicholas: 'nick',
+  zachary: 'zach', zack: 'zach',
+  anthony: 'tony',
+  gabriel: 'gabe',
+  jonathan: 'jon',
+  joseph: 'joe', joey: 'joe',
+  daniel: 'dan', danny: 'dan',
+  jeffrey: 'jeff',
+  timothy: 'tim',
+  mitchell: 'mitch',
+  gregory: 'greg',
+  raymond: 'ray',
+};
+
+// Merge key: normalized name with the first-name nickname folded to a canonical stem.
+// normName() already collapses "A.J."/"AJ" and "St."/"St" style punctuation differences.
+function canonName(s) {
+  const n = normName(s);
+  if (!n) return n;
+  const parts = n.split(' ');
+  parts[0] = NAME_NICKS[parts[0]] || parts[0];
+  return parts.join(' ');
 }
 
 function showNotif(msg, isErr = false) {
@@ -1720,22 +1763,42 @@ function vrRenderTable() {
 
   const sets      = VR.selectedIds.map(id => VR.loadedData[vrIdKey(id)]).filter(Boolean);
   const avgMaps   = sets.map(s => vrComputeAvgRanks(s.rankings));
+  const showDiff  = sets.length >= 2;
 
-  // Build union of all players
+  // FC overall ranks re-keyed by the same merge key, so nickname variants still resolve.
+  const fcByCanon = {};
+  for (const [k, v] of Object.entries(nameToMktRank)) {
+    if (v?.overallRank != null) fcByCanon[canonName(k)] = v.overallRank;
+  }
+
+  // Build union of all players, merging likely-same names (A.J./AJ, Kenneth/Kenny, St./St, …)
   const playerMap = {};
   for (let i = 0; i < sets.length; i++) {
     for (const r of sets[i].rankings) {
-      if (!playerMap[r.player_name]) {
-        playerMap[r.player_name] = {
+      const key = canonName(r.player_name);
+      let entry = playerMap[key];
+      if (!entry) {
+        entry = playerMap[key] = {
           player_name: r.player_name,
           position:    r.position,
           ranks:       new Array(sets.length).fill(null),
-          fcRank:      nameToMktRank[normName(r.player_name)]?.overallRank ?? null,
+          fcRank:      null,
         };
+      } else if (r.player_name.length > entry.player_name.length) {
+        // Prefer the fullest spelling for display ("A.J. Brown" over "AJ Brown")
+        entry.player_name = r.player_name;
       }
-      playerMap[r.player_name].ranks[i] = avgMaps[i][r.tier] ?? null;
+      const v = avgMaps[i][r.tier];
+      if (v != null && (entry.ranks[i] == null || v < entry.ranks[i])) entry.ranks[i] = v;
     }
   }
+  for (const entry of Object.values(playerMap)) {
+    entry.fcRank = nameToMktRank[normName(entry.player_name)]?.overallRank
+                ?? fcByCanon[canonName(entry.player_name)] ?? null;
+  }
+
+  const rowDiff = row => (showDiff && row.ranks[0] != null && row.ranks[1] != null)
+    ? row.ranks[0] - row.ranks[1] : null;
 
   // Filter
   let rows = Object.values(playerMap).filter(row => {
@@ -1753,6 +1816,10 @@ function vrRenderTable() {
       const ar = a.fcRank ?? nullVal, br = b.fcRank ?? nullVal;
       return VR.sortDir * (ar - br);
     }
+    if (VR.sortCol === 'diff') {
+      const ar = rowDiff(a) ?? nullVal, br = rowDiff(b) ?? nullVal;
+      return VR.sortDir * (ar - br);
+    }
     const idx = VR.sortCol;
     const ar = a.ranks[idx] ?? nullVal, br = b.ranks[idx] ?? nullVal;
     return VR.sortDir * (ar - br);
@@ -1760,15 +1827,18 @@ function vrRenderTable() {
 
   // Header
   const cols = [
-    { key: 'name', lbl: 'Player'     },
-    { key: 'pos',  lbl: 'Pos'        },
-    ...sets.map((s, i) => ({ key: i, lbl: s.name })),
-    { key: 'fc',   lbl: 'FC Overall' },
+    { key: 'name', lbl: 'Player', cls: 'col-name' },
+    { key: 'pos',  lbl: 'Pos',    cls: 'col-pos'  },
+    ...sets.map((s, i) => ({ key: i, lbl: s.name, cls: 'col-rank' })),
+    ...(showDiff ? [{ key: 'diff', lbl: 'Diff', cls: 'col-rank',
+                      title: `${sets[0].name} rank minus ${sets[1].name} rank (− = higher on the first list)` }] : []),
+    { key: 'fc',   lbl: 'FC Overall', cls: 'col-rank' },
   ];
   thead.innerHTML = `<tr>${cols.map(c => {
     const sorted = VR.sortCol === c.key;
     const arr    = sorted ? (VR.sortDir === 1 ? '▲' : '▼') : '·';
-    return `<th class="${sorted ? 'sorted' : ''}" onclick="vrSort(${JSON.stringify(c.key)})">${esc(c.lbl)}<span class="sort-arr">${arr}</span></th>`;
+    const t      = c.title ? ` title="${esc(c.title)}"` : '';
+    return `<th class="${c.cls}${sorted ? ' sorted' : ''}"${t} onclick="vrSort(${JSON.stringify(c.key)})">${esc(c.lbl)}<span class="sort-arr">${arr}</span></th>`;
   }).join('')}</tr>`;
 
   // Body
@@ -1780,18 +1850,28 @@ function vrRenderTable() {
   tbody.innerHTML = rows.map(row => {
     const rankCells = row.ranks.map(r =>
       r != null
-        ? `<td class="var-rank-val">${vrFormatRank(r)}</td>`
-        : `<td class="var-rank-none">—</td>`
+        ? `<td class="var-rank-val col-rank">${vrFormatRank(r)}</td>`
+        : `<td class="var-rank-none col-rank">—</td>`
     ).join('');
+    const diffCell = showDiff ? vrDiffCell(rowDiff(row)) : '';
     const fcCell = row.fcRank != null
-      ? `<td class="var-rank-val">${row.fcRank}</td>`
-      : `<td class="var-rank-none">—</td>`;
+      ? `<td class="var-rank-val col-rank">${row.fcRank}</td>`
+      : `<td class="var-rank-none col-rank">—</td>`;
     return `<tr>
-      <td>${esc(row.player_name)}</td>
-      <td><span class="var-pos-badge var-pos-${esc(row.position)}">${esc(row.position)}</span></td>
-      ${rankCells}${fcCell}
+      <td class="col-name">${esc(row.player_name)}</td>
+      <td class="col-pos"><span class="var-pos-badge var-pos-${esc(row.position)}">${esc(row.position)}</span></td>
+      ${rankCells}${diffCell}${fcCell}
     </tr>`;
   }).join('');
+}
+
+function vrDiffCell(d) {
+  if (d == null) return `<td class="var-rank-none col-rank">—</td>`;
+  const r = Math.round(d * 10) / 10;
+  if (r === 0) return `<td class="var-diff col-rank" style="color:var(--brown-light)">0</td>`;
+  const sign = r > 0 ? '+' : '−';
+  const col  = r < 0 ? '#5cb85c' : '#e8734b';
+  return `<td class="var-diff col-rank" style="color:${col};font-weight:700">${sign}${vrFormatRank(Math.abs(r))}</td>`;
 }
 
 function vrSort(col) {
