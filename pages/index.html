@@ -5,45 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>My Rankings — FF Historian</title>
 <link href="https://fonts.googleapis.com/css2?family=Rye&family=Playfair+Display:ital,wght@0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css" />
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <style>
-:root {
-  --cream:       #f5ead6;
-  --parchment:   #e8d5b0;
-  --brown-dark:  #2a1a0e;
-  --brown-mid:   #5c3d1e;
-  --brown-light: #8b5e2e;
-  --green:       #2d4a1e;
-  --green-light: #4a7a2f;
-  --red:         #8b1a1a;
-  --gold:        #c9962a;
-  --gold-light:  #e8b84b;
-  --ink:         #1a1008;
-  --pos-qb:      #7a1a1a;
-  --pos-rb:      #1a4a1a;
-  --pos-wr:      #1a2a6a;
-  --pos-te:      #5a1a7a;
-}
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  background: var(--cream);
-  color: var(--ink);
-  font-family: 'Crimson Text', Georgia, serif;
-  min-height: 100vh;
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9962a' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-body::before {
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.25;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E");
-}
-.page-wrap { position: relative; z-index: 1; }
+:root { --pos-qb: #7a1a1a; --pos-rb: #1a4a1a; --pos-wr: #1a2a6a; --pos-te: #5a1a7a; }
 
-/* ── Banner ── */
-.banner { background: var(--green); border-bottom: 6px double var(--gold); position: relative; overflow: hidden; }
-.banner::before {
-  content: ''; position: absolute; inset: 0;
-  background: repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(0,0,0,0.06) 10px, rgba(0,0,0,0.06) 11px);
-}
+body { background: var(--cream); }
+body::before { opacity: 0.25; }
+
+
+
+
 .banner-inner {
   position: relative; z-index: 1;
   max-width: 1600px; margin: 0 auto;
@@ -51,15 +23,11 @@ body::before {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .banner-left { flex: 1; }
-.banner-back {
-  font-family: 'Rye', serif; font-size: 0.52rem; letter-spacing: 0.3em;
-  text-transform: uppercase; color: var(--gold-light); text-decoration: none;
-  opacity: 0.7; display: inline-block; margin-bottom: 6px;
-}
-.banner-back:hover { opacity: 1; }
-.banner h1 { font-family: 'Rye', serif; font-size: clamp(1rem, 2.5vw, 1.6rem); color: var(--cream); text-shadow: 2px 2px 0 rgba(0,0,0,0.4); line-height: 1.1; }
-.banner h1 span { color: var(--gold-light); }
-.banner-sub { margin-top: 4px; font-family: 'Playfair Display', serif; font-style: italic; font-size: 0.8rem; color: var(--parchment); opacity: 0.75; }
+.banner-back { font-size: 0.52rem; margin-bottom: 6px; }
+
+.banner h1 { font-size: clamp(1rem, 2.5vw, 1.6rem); }
+
+.banner-sub { margin-top: 4px; font-size: 0.8rem; }
 #auth-chip { display: flex; align-items: center; }
 
 /* ── Main layout ── */
@@ -601,6 +569,7 @@ body::before {
 <!-- Notification toast -->
 <div class="notif" id="notif"></div>
 
+<script src="https://helper.ffhistorian.com/shared-core.js"></script>
 <script src="https://helper.ffhistorian.com/shared-auth.js"></script>
 <script>
 (function () {
@@ -644,16 +613,7 @@ let importMode       = 'my';  // 'my' | 'new' | 'overwrite'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
-function normName(s) {
-  return (s || '').toLowerCase().trim()
-    .replace(/\s+(jr\.?|sr\.?|ii|iii|iv)$/i, '')
-    .replace(/[^a-z0-9 ]/g, '')
-    .replace(/\s+/g, ' ');
-}
 
 // Common first-name nickname variants that point at the same player across ranking sets
 // (last-name collisions with a shared first-name stem are vanishingly rare in fantasy football).
@@ -923,7 +883,7 @@ function buildPlayerCard(p) {
       </div>
       ${rankChipsHtml}
     </div>
-    ${isEditable ? `<button class="player-remove" title="Remove player" onclick="removePlayer(${JSON.stringify(p.player_name)})">&#x2715;</button>` : ''}
+    ${isEditable ? `<button class="player-remove" title="Remove player" onclick="removePlayer(${jsArg(p.player_name)})">&#x2715;</button>` : ''}
   `;
   return card;
 }
@@ -934,7 +894,7 @@ function buildPickBadge(pickName) {
   badge.dataset.pickName = pickName;
   badge.innerHTML = `
     ${esc(pickName)}
-    <button class="pick-remove" title="Unassign pick" onclick="unassignPick(${JSON.stringify(pickName)})">&#x2715;</button>
+    <button class="pick-remove" title="Unassign pick" onclick="unassignPick(${jsArg(pickName)})">&#x2715;</button>
   `;
   return badge;
 }
@@ -1438,7 +1398,7 @@ function renderShareList() {
     const display = share.name ? `${esc(share.name)} (${esc(share.email)})` : esc(share.email);
     const item = document.createElement('div');
     item.className = 'share-item';
-    item.innerHTML = `<span>${display}</span><button class="btn btn-sm btn-danger" onclick="removeShare(${JSON.stringify(share.id)})">Remove</button>`;
+    item.innerHTML = `<span>${display}</span><button class="btn btn-sm btn-danger" onclick="removeShare(${jsArg(share.id)})">Remove</button>`;
     listEl.appendChild(item);
   }
 }
@@ -1494,11 +1454,11 @@ function exportCSV() {
 // ── CSV Import ────────────────────────────────────────────────────────────────
 
 function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) throw new Error('CSV must have a header row and at least one player');
+  const rows = csvTable(text);
+  if (rows.length < 2) throw new Error('CSV must have a header row and at least one player');
 
   // Normalize header
-  const headerRaw = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z_]/g, ''));
+  const headerRaw = rows[0].map(h => h.toLowerCase().replace(/[^a-z_]/g, ''));
   const colMap = {};
   const aliases = {
     player_name: ['player_name', 'player', 'name', 'playername'],
@@ -1516,8 +1476,8 @@ function parseCSV(text) {
 
   const VALID_POS = new Set(['QB', 'RB', 'WR', 'TE']);
   const players = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i];
     const player_name = (cols[colMap.player_name] || '').trim();
     if (!player_name) continue;
     const position = (cols[colMap.position] || '').trim().toUpperCase();
@@ -1658,7 +1618,7 @@ function renderVRSetSelect() {
     const atMax      = !isSelected && VR.selectedIds.length >= 5;
     return `<label class="var-set-item${isSelected ? ' selected' : ''}">
       <input type="checkbox" ${isSelected ? 'checked' : ''} ${atMax ? 'disabled' : ''}
-             onchange="vrToggleSet(${JSON.stringify(s.id)}, this.checked)" />
+             onchange="vrToggleSet(${jsArg(s.id)}, this.checked)" />
       ${esc(s.name)}
     </label>`;
   }).join('');
@@ -1838,7 +1798,7 @@ function vrRenderTable() {
     const sorted = VR.sortCol === c.key;
     const arr    = sorted ? (VR.sortDir === 1 ? '▲' : '▼') : '·';
     const t      = c.title ? ` title="${esc(c.title)}"` : '';
-    return `<th class="${c.cls}${sorted ? ' sorted' : ''}"${t} onclick="vrSort(${JSON.stringify(c.key)})">${esc(c.lbl)}<span class="sort-arr">${arr}</span></th>`;
+    return `<th class="${c.cls}${sorted ? ' sorted' : ''}"${t} onclick="vrSort(${jsArg(c.key)})">${esc(c.lbl)}<span class="sort-arr">${arr}</span></th>`;
   }).join('')}</tr>`;
 
   // Body

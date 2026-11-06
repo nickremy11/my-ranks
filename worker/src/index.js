@@ -2,10 +2,7 @@
  * My Ranks — Cloudflare Worker
  *
  * Routes:
- *   GET    /api/auth/me             → current user (shared-auth.js compatible)
- *   POST   /api/auth/login          → login, set .ffhistorian.com session cookie
- *   POST   /api/auth/logout         → clear session cookie
- *   POST   /api/auth/register       → returns error (register at helper.ffhistorian.com)
+ *   (sign-in and accounts live on helper.ffhistorian.com/api/auth/*)
  *   GET    /api/myranks/data        → { rankings, picks } for logged-in user
  *   POST   /api/myranks/import      → bulk import from CSV parse (clears + replaces)
  *   PATCH  /api/myranks/player      → move player to new tier
@@ -16,7 +13,7 @@
  * D1 binding: DB (shared sleeper-helper-db)
  */
 
-import { getAuthUser, handleLogin, handleLogout, handleMe } from './auth.js';
+import { getAuthUser } from './auth.js';
 
 const ALLOWED_ORIGINS = new Set([
   'https://myranks.ffhistorian.com',
@@ -566,14 +563,6 @@ export default {
 
     if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
-    }
-
-    // Auth routes (shared-auth.js compatible)
-    if (path === '/api/auth/me'       && method === 'GET')  return handleMe(request, env, cors);
-    if (path === '/api/auth/login'    && method === 'POST') return handleLogin(request, env, cors);
-    if (path === '/api/auth/logout'   && method === 'POST') return handleLogout(request, env, cors);
-    if (path === '/api/auth/register' && method === 'POST') {
-      return err('Account creation is available at helper.ffhistorian.com', 403, cors);
     }
 
     // Rankings routes
