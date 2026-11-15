@@ -391,6 +391,30 @@ body::before { opacity: 0.25; }
 .var-pos-RB { background: rgba(92,184,92,0.18);  color: #5cb85c; }
 .var-pos-WR { background: rgba(91,192,222,0.18); color: #5bc0de; }
 .var-pos-TE { background: rgba(232,115,75,0.18); color: #e8734b; }
+
+/* Programme redesign: this page's dark panels and buttons keep the on-dark token
+   values. helper's shared-styles.css now defines the tokens for a cream page
+   (gold = readable green), which made gold text on these panels dark-on-dark. */
+.auth-gate,
+.btn:not(.btn-ghost):not(.btn-danger),
+.btn-danger:hover,
+.btn-ghost:hover,
+.pick-badge,
+.grid-header-cell,
+.tier-info,
+.rank-mine,
+.rank-market,
+.rank-overall,
+.modal-card,
+.modal-field option,
+.notif,
+.notif.err,
+.dropdown-menu,
+.var-table th {
+  --brown-dark: #1f3d22; --brown-mid: #3f6143; --brown-light: #b5c7a6;
+  --cream: #f3e9d2; --parchment: #e9dfc4; --gold: #dba630; --gold-light: #f0b93a;
+  --label: var(--gold); --tint: 255,255,255;
+}
 </style>
 </head>
 <body>
