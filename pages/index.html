@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>My Rankings — FF Historian</title>
+<title>My Ranks — FF Historian</title>
 <link href="https://fonts.googleapis.com/css2?family=Graduate&family=Bitter:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261116" />
+<link rel="stylesheet" href="https://helper.ffhistorian.com/shared-styles.css?v=20261122" />
+<script>try{if(/(?:^|; )sh_theme=dark/.test(document.cookie)||localStorage.getItem("sh_theme")==="dark")document.documentElement.setAttribute("data-theme","dark")}catch(e){}</script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <style>
 :root { --pos-qb: #7a1a1a; --pos-rb: #1a4a1a; --pos-wr: #1a2a6a; --pos-te: #5a1a7a; }
@@ -415,6 +416,57 @@ body::before { opacity: 0.25; }
   --cream: #f3e9d2; --parchment: #e9dfc4; --gold: #dba630; --gold-light: #f0b93a;
   --label: var(--gold); --tint: 255,255,255;
 }
+
+/* ── Game-Day Programme, like every FF Historian site ─────────────────────────
+   Panels are cream cards (the tokens redefined inside them, as shared-styles.css
+   does for its CARD SURFACES); buttons, the grid header and tier labels stay ink.
+   Everything reads the shared surface variables, so dark mode follows. */
+body { background: var(--page); }
+.btn { background: var(--ink-bg); border-color: var(--ink-bg); color: var(--ink-fg); border-radius: 6px; font-size: 0.56rem; padding: 9px 16px; }
+.btn:hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-sm { font-size: 0.5rem; padding: 7px 11px; }
+.btn-ghost { background: var(--card); color: var(--card-text); border-color: var(--edge); }
+.btn-ghost:hover { background: var(--card-hover); color: var(--card-text); border-color: var(--edge); }
+.btn-danger { background: var(--card); border-color: var(--c-red); color: var(--c-red); }
+.btn-danger:hover { background: #a8321f; border-color: #a8321f; color: #fff; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-gate, .modal-card, .dropdown-menu, .picks-panel, .start-panel {
+  background: var(--card); border: 2px solid var(--edge); border-radius: 10px; color: var(--card-text); box-shadow: 4px 4px 0 var(--edge);
+  --brown-dark: var(--card); --brown-mid: var(--rule-in); --brown-light: var(--card-muted);
+  --cream: var(--card-text); --parchment: var(--card-text2); --gold: var(--card-gold); --gold-light: var(--card-gold); --label: var(--card-gold);
+}
+.picks-panel { box-shadow: none; }
+.auth-gate h2, .modal-title { color: var(--card-text); }
+.modal-overlay { background: rgba(0,0,0,0.55); }
+.modal-field { background: var(--page); border: 2px solid var(--rule-in); color: var(--card-text); border-radius: 6px; }
+.modal-field:focus { border-color: var(--edge); }
+.modal-field option { background: var(--card); color: var(--card-text); }
+.modal-err  { background: rgba(179,38,30,0.08); border-color: var(--c-red); color: var(--c-red); }
+.modal-info { background: rgba(46,125,50,0.10); border-color: var(--c-green); color: var(--card-text); }
+.dropdown-item { color: var(--card-text); border-bottom-color: var(--rule); }
+.dropdown-item:hover { background: var(--card-hover); color: var(--card-text); }
+.dropdown-item.active { color: var(--card-gold); }
+.toolbar { border-bottom: 2px solid var(--rule); }
+.toolbar-title { color: var(--ink); }
+.grid-header, #tier-grid { border-color: var(--edge); }
+.tier-row { border-bottom-color: var(--rule-in); }
+.picks-cell { background: rgba(var(--tint),0.04); border-right-color: var(--rule); }
+.pos-cell { background: var(--card); border-right-color: var(--rule); }
+.pos-cell:nth-child(odd) { background: var(--page); }
+.player-card { background: var(--card); border-color: var(--rule-in); border-radius: 6px; }
+.player-card:hover { border-color: var(--edge); }
+.player-name { color: var(--card-text); }
+/* pill choices (baseline modal) */
+.pill-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.pill { font-family: var(--font-display), serif; font-size: 0.52rem; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer;
+  padding: 8px 12px; border-radius: 6px; background: var(--card); border: 2px solid var(--edge); color: var(--card-text); }
+.pill:hover { background: var(--card-hover); }
+.pill.on { background: var(--sel-bg); border-color: var(--sel-bg); color: var(--sel-fg); }
+/* empty main list */
+.start-panel { padding: 26px 28px; margin-bottom: 18px; text-align: center; }
+.start-panel h2 { font-family: var(--font-display), serif; font-size: 1rem; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+.start-panel p { max-width: 560px; margin: 0 auto 16px; color: var(--card-text2); line-height: 1.55; }
+.start-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -424,9 +476,9 @@ body::before { opacity: 0.25; }
 <header class="banner">
   <div class="banner-inner">
     <div class="banner-left">
-      <a href="https://helper.ffhistorian.com" class="banner-back">&#8592; Sleeper Helper</a>
-      <h1>My <span>Rankings</span></h1>
-      <div class="banner-sub">Dynasty Tier Board — Drag &amp; Drop</div>
+      <a href="https://ffhistorian.com" class="banner-back">&#8592; FF Historian</a>
+      <h1>My <span>Ranks</span></h1>
+      <div class="banner-sub">Your tier board: drag &amp; drop, share, and see it across League Assist</div>
     </div>
     <div id="auth-chip"></div>
   </div>
@@ -450,6 +502,8 @@ body::before { opacity: 0.25; }
       <!-- My-rankings controls (hidden in view-only mode) -->
       <button class="btn btn-sm btn-ghost" id="export-btn">&#8595; Export CSV</button>
       <button class="btn btn-sm btn-ghost" id="import-btn">&#8593; Import CSV</button>
+      <button class="btn btn-sm" id="baseline-btn">&#9733; Start from FantasyCalc</button>
+      <button class="btn btn-sm btn-ghost" id="rename-btn">&#9998; Rename</button>
       <button class="btn btn-sm btn-ghost" id="add-player-btn">+ Add Player</button>
       <button class="btn btn-sm btn-ghost" id="add-tier-btn-top">+ Add Tier</button>
       <button class="btn btn-sm btn-ghost" id="my-share-btn">Share</button>
@@ -458,13 +512,23 @@ body::before { opacity: 0.25; }
       <button class="btn btn-sm btn-ghost hidden" id="set-overwrite-btn">&#8593; Overwrite</button>
       <button class="btn btn-sm btn-danger hidden" id="set-delete-btn">Delete</button>
       <button class="btn btn-sm btn-ghost hidden" id="set-share-btn">Share</button>
-      <button class="btn btn-sm btn-ghost hidden" id="back-btn">&#8592; My Rankings</button>
+      <button class="btn btn-sm btn-ghost hidden" id="back-btn">&#8592; My main list</button>
       <!-- View All Ranks (always visible) -->
       <button class="btn btn-sm btn-ghost" id="view-all-ranks-btn">&#9776; View All Ranks</button>
       <!-- Other rankings dropdown (always visible) -->
       <div class="dropdown" id="sets-dropdown-wrap">
         <button class="btn btn-sm" id="sets-dropdown-btn">Other Rankings &#9662;</button>
         <div class="dropdown-menu hidden" id="sets-dropdown-menu"></div>
+      </div>
+    </div>
+
+    <!-- Empty main list: offer a starting point -->
+    <div class="start-panel hidden" id="start-panel">
+      <h2>Start your board</h2>
+      <p>Begin from FantasyCalc's top 250, already cut into tiers where the values drop off, or upload your own CSV. Then drag players to make it yours.</p>
+      <div class="start-actions">
+        <button class="btn" onclick="openBaseline()">&#9733; Start from FantasyCalc</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('import-btn').click()">&#8593; Upload a CSV</button>
       </div>
     </div>
 
@@ -493,6 +557,57 @@ body::before { opacity: 0.25; }
 
   </div>
 </main>
+</div>
+
+<!-- Start from FantasyCalc -->
+<div id="baseline-modal" class="modal-overlay">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('baseline-modal')">&times;</button>
+    <div class="modal-title">Start from FantasyCalc</div>
+    <p class="modal-hint">FantasyCalc's current values, top players at QB/RB/WR/TE, cut into tiers wherever the value drops off. A starting point; drag from there.</p>
+    <label class="modal-label">Format</label>
+    <div class="pill-row" id="bl-fmt">
+      <button class="pill on" data-v="dynasty">Dynasty</button><button class="pill" data-v="redraft">Redraft</button>
+    </div>
+    <label class="modal-label">Quarterbacks</label>
+    <div class="pill-row" id="bl-qbs">
+      <button class="pill on" data-v="2">Superflex</button><button class="pill" data-v="1">1QB</button>
+    </div>
+    <label class="modal-label">How many players</label>
+    <div class="pill-row" id="bl-count">
+      <button class="pill" data-v="150">150</button><button class="pill on" data-v="250">250</button><button class="pill" data-v="300">300</button>
+    </div>
+    <label class="modal-label">Save to</label>
+    <div class="pill-row" id="bl-dest">
+      <button class="pill on" data-v="main">My main list</button><button class="pill" data-v="new">A new list</button>
+    </div>
+    <div id="bl-name-wrap" class="hidden">
+      <label class="modal-label">Name for the new list</label>
+      <input type="text" id="bl-name" class="modal-field" maxlength="80" placeholder="e.g. FantasyCalc baseline" />
+    </div>
+    <div class="modal-info" id="bl-info"></div>
+    <div class="modal-err" id="bl-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('baseline-modal')">Cancel</button>
+      <button class="btn" id="bl-confirm" disabled>Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename a list -->
+<div id="rename-modal" class="modal-overlay">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal('rename-modal')">&times;</button>
+    <div class="modal-title" id="rename-title">Rename</div>
+    <label class="modal-label">Name</label>
+    <input type="text" id="rename-input" class="modal-field" maxlength="80" />
+    <p class="modal-hint" id="rename-hint"></p>
+    <div class="modal-err" id="rename-err"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rename-modal')">Cancel</button>
+      <button class="btn" id="rename-confirm">Save</button>
+    </div>
+  </div>
 </div>
 
 <!-- Import CSV Modal -->
@@ -634,6 +749,8 @@ let activeSetIsOwner = false; // true when viewing a set you own
 let isEditable       = true;  // true for primary rankings OR a named set you own — gates board edits
 let currentShares    = [];    // [{id, name, email}] — shares for active set (owner only)
 let importMode       = 'my';  // 'my' | 'new' | 'overwrite'
+let primaryName      = null;  // the main list's own name (user_rankings_meta); null → "My Rankings"
+const primaryLabel   = () => primaryName || 'My Rankings';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -770,6 +887,8 @@ async function loadData() {
   state.picks    = d.picks    || [];
   state.maxTier  = Math.max(1, ...state.rankings.map(r => r.tier));
   removedTiers   = new Set();
+  primaryName    = d.name || null;
+  if (activeSetId === null) document.getElementById('toolbar-title').textContent = primaryLabel();
 
   // Build name → decimal age map (keys already normalized by worker)
   nameToAge = {};
@@ -801,6 +920,8 @@ function destroySortables() {
 // ── Grid rendering ────────────────────────────────────────────────────────────
 
 function renderGrid() {
+  // An empty main list offers a starting point (FantasyCalc baseline / CSV)
+  document.getElementById('start-panel').classList.toggle('hidden', !(activeSetId === null && state.rankings.length === 0));
   destroySortables();
   myPosRanks = computeMyPosRanks();
 
@@ -1260,7 +1381,7 @@ function renderSetsDropdown() {
   const addDivider = () => { const d = document.createElement('div'); d.className = 'dropdown-divider'; menu.appendChild(d); };
   const addLabel = text => { const l = document.createElement('div'); l.className = 'dropdown-section-label'; l.textContent = text; menu.appendChild(l); };
 
-  addItem('My Rankings', activeSetId === null, () => { backToMyRankings(); closeSetsDropdown(); });
+  addItem(primaryLabel(), activeSetId === null, () => { backToMyRankings(); closeSetsDropdown(); });
 
   if (savedSets.length > 0) {
     addDivider();
@@ -1302,6 +1423,9 @@ function setViewMode(viewOnly, isOwner = false) {
   editIds.forEach(id   => document.getElementById(id).classList.toggle('hidden', !isEditable));
   alwaysSet.forEach(id => document.getElementById(id).classList.toggle('hidden', !viewOnly));
   ownerOnly.forEach(id => document.getElementById(id).classList.toggle('hidden', !(viewOnly && isOwner)));
+  // Rename: your main list or a list you own. Baseline: main list only (a set has Overwrite).
+  document.getElementById('rename-btn').classList.toggle('hidden', !isEditable);
+  document.getElementById('baseline-btn').classList.toggle('hidden', viewOnly);
   // Picks only apply to primary rankings — keep the unassigned-picks panel hidden for any set.
   document.querySelector('.picks-panel').classList.toggle('hidden', viewOnly);
 }
@@ -1312,7 +1436,7 @@ async function openSet(id) {
     if (typeof id === 'string' && id.startsWith('primary:')) {
       const ownerId = id.slice(8);
       d = await api('GET', `/api/myranks/data?owner_id=${encodeURIComponent(ownerId)}`);
-      displayName = d.owner_name ? `${d.owner_name}'s Rankings` : 'Shared Rankings';
+      displayName = d.name || (d.owner_name ? `${d.owner_name}'s Rankings` : 'Shared Rankings');
       d.is_owner  = false;
     } else {
       d = await api('GET', `/api/myranks/sets/${id}/data`);
@@ -1334,7 +1458,7 @@ async function openSet(id) {
 function backToMyRankings() {
   if (!isViewOnly) return;
   activeSetId = null; activeSetIsOwner = false;
-  document.getElementById('toolbar-title').textContent = 'Tier Board';
+  document.getElementById('toolbar-title').textContent = primaryLabel();
   setViewMode(false);
   loadData().then(renderGrid);
   renderSetsDropdown();
@@ -1394,7 +1518,7 @@ function shareEndpoint() {
 async function openShareModal() {
   const isMyPrimary = (activeSetId === null);
   if (!isMyPrimary && !activeSetIsOwner) return;
-  const name = isMyPrimary ? 'My Rankings' : (savedSets.find(s => s.id === activeSetId)?.name || '');
+  const name = isMyPrimary ? primaryLabel() : (savedSets.find(s => s.id === activeSetId)?.name || '');
   document.getElementById('share-modal-title').textContent = `Share: ${name}`;
   document.getElementById('share-email').value = '';
   document.getElementById('share-err').style.display  = 'none';
@@ -1615,7 +1739,7 @@ const VR = {
 function vrIdKey(id) { return id === null ? '__my__' : String(id); }
 
 function openViewAllRanks() {
-  VR.available = [{ id: null, name: 'My Rankings' }];
+  VR.available = [{ id: null, name: primaryLabel() }];
   for (const s of savedSets)        VR.available.push({ id: s.id, name: s.name });
   for (const s of sharedWithMeSets) {
     const label = s.owner_name ? `${s.name} — ${s.owner_name}` : s.name;
@@ -1863,6 +1987,182 @@ function vrSort(col) {
   vrRenderTable();
 }
 
+// ── Start from FantasyCalc ───────────────────────────────────────────────────
+// FantasyCalc publishes values, not tiers. Tiers are cut where the value drops off:
+// each gap is scored (v[i] − v[i+1]) / v[i]^0.75 — so a drop near the top (where
+// values are big) must be larger to count than the same drop lower down — and the
+// BL_CUTS best-scoring gaps become tier breaks, no tier smaller than BL_MIN_TIER.
+// Any tier still longer than BL_MAX_TIER is split at its own biggest gap. On real
+// dynasty SF values that gives ~27 tiers growing from 2–4 players at the top to
+// 15–20 at the bottom, which is how a hand-built board tends to look.
+const BL_CUTS = 18, BL_MIN_TIER = 2, BL_MAX_TIER = 20, BL_ALPHA = 0.75;
+const BL = { fmt: 'dynasty', qbs: '2', count: 250, dest: 'main', players: null, seq: 0 };
+
+function blAutoTiers(vals) {
+  const n = vals.length;
+  if (n < 2) return vals.map(() => 1);
+  const score = [];
+  for (let i = 0; i < n - 1; i++) score.push((vals[i] - vals[i + 1]) / Math.pow(Math.max(vals[i], 1), BL_ALPHA));
+  const cuts = new Set();
+  const fits = c => {
+    const b = [-1, ...[...c].sort((a, b) => a - b), n - 1];
+    for (let j = 0; j < b.length - 1; j++) if (b[j + 1] - b[j] < BL_MIN_TIER) return false;
+    return true;
+  };
+  for (const i of [...score.keys()].sort((a, b) => score[b] - score[a])) {
+    if (cuts.size >= BL_CUTS) break;
+    const next = new Set(cuts); next.add(i);
+    if (fits(next)) cuts.add(i);
+  }
+  for (let guard = 0; guard < 100; guard++) {
+    const b = [-1, ...[...cuts].sort((a, b) => a - b), n - 1];
+    let split = false;
+    for (let j = 0; j < b.length - 1 && !split; j++) {
+      const lo = b[j] + 1, hi = b[j + 1];
+      if (hi - lo + 1 <= BL_MAX_TIER) continue;
+      let best = -1;
+      for (let i = lo + BL_MIN_TIER - 1; i <= hi - BL_MIN_TIER; i++) if (best < 0 || score[i] > score[best]) best = i;
+      if (best >= 0) { cuts.add(best); split = true; }
+    }
+    if (!split) break;
+  }
+  const tiers = []; let t = 1;
+  for (let i = 0; i < n; i++) { tiers.push(t); if (cuts.has(i)) t++; }
+  return tiers;
+}
+
+async function blBuild() {
+  const seq = ++BL.seq;
+  const info = document.getElementById('bl-info'), errEl = document.getElementById('bl-err'), btn = document.getElementById('bl-confirm');
+  BL.players = null; btn.disabled = true; errEl.style.display = 'none';
+  info.textContent = 'Reading FantasyCalc…'; info.style.display = 'block';
+  try {
+    const r = await fetch(`/api/myranks/fc?fmt=${BL.fmt}&qbs=${BL.qbs}`);
+    if (!r.ok) throw new Error('FantasyCalc is unavailable right now');
+    const arr = await r.json();
+    if (seq !== BL.seq) return;   // a newer choice is already loading
+    const rows = (Array.isArray(arr) ? arr : [])
+      .filter(it => POSITIONS.includes(it?.player?.position) && it.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, BL.count);
+    if (rows.length < 20) throw new Error('FantasyCalc returned too few players');
+    const tiers = blAutoTiers(rows.map(it => it.value));
+    BL.players = rows.map((it, i) => ({
+      player_name: it.player.name,
+      team: it.player.maybeTeam || '',
+      position: it.player.position,
+      tier: tiers[i],
+    }));
+    const nT = tiers[tiers.length - 1];
+    const top = BL.players.filter(p => p.tier === 1).map(p => p.player_name).join(', ');
+    info.textContent = `${BL.players.length} players in ${nT} tiers. Tier 1: ${top}.`;
+    btn.disabled = false;
+  } catch (e) {
+    if (seq !== BL.seq) return;
+    info.style.display = 'none';
+    errEl.textContent = e.message; errEl.style.display = 'block';
+  }
+}
+
+function blSyncPills() {
+  for (const [id, val] of [['bl-fmt', BL.fmt], ['bl-qbs', BL.qbs], ['bl-count', String(BL.count)], ['bl-dest', BL.dest]]) {
+    document.querySelectorAll(`#${id} .pill`).forEach(b => b.classList.toggle('on', b.dataset.v === val));
+  }
+  document.getElementById('bl-name-wrap').classList.toggle('hidden', BL.dest !== 'new');
+  const n = state.rankings.length;
+  document.getElementById('bl-confirm').textContent =
+    BL.dest === 'new' ? 'Create list' : (n && activeSetId === null ? `Replace my ${n} players` : 'Create');
+}
+
+function openBaseline() {
+  BL.dest = 'main';
+  document.getElementById('bl-name').value = '';
+  blSyncPills();
+  openModal('baseline-modal');
+  blBuild();
+}
+
+function setupBaselineModal() {
+  const bind = (id, key, rebuild) => document.querySelectorAll(`#${id} .pill`).forEach(b => b.addEventListener('click', () => {
+    BL[key] = key === 'count' ? Number(b.dataset.v) : b.dataset.v;
+    blSyncPills();
+    if (rebuild) blBuild();
+  }));
+  bind('bl-fmt', 'fmt', true); bind('bl-qbs', 'qbs', true); bind('bl-count', 'count', true); bind('bl-dest', 'dest', false);
+
+  document.getElementById('bl-confirm').addEventListener('click', async () => {
+    const btn = document.getElementById('bl-confirm'), errEl = document.getElementById('bl-err');
+    if (!BL.players) return;
+    errEl.style.display = 'none';
+    try {
+      if (BL.dest === 'new') {
+        const name = document.getElementById('bl-name').value.trim();
+        if (!name) { errEl.textContent = 'Give the new list a name'; errEl.style.display = 'block'; return; }
+        btn.disabled = true; btn.textContent = 'Saving…';
+        const d = await api('POST', '/api/myranks/sets', { name, players: BL.players });
+        savedSets.unshift({ id: d.id, name, updated_at: Date.now(), player_count: BL.players.length });
+        closeModal('baseline-modal');
+        showNotif(`Created "${name}" (${BL.players.length} players)`);
+        openSet(d.id);
+      } else {
+        if (state.rankings.length && activeSetId === null &&
+            !confirm(`Replace your ${state.rankings.length} ranked players with this baseline? Draft-pick placements are kept.`)) return;
+        btn.disabled = true; btn.textContent = 'Saving…';
+        await api('POST', '/api/myranks/import', { players: BL.players });
+        if (activeSetId !== null) backToMyRankings();
+        state.rankings = BL.players.slice();
+        state.maxTier  = Math.max(1, ...state.rankings.map(p => p.tier));
+        removedTiers   = new Set();
+        closeModal('baseline-modal');
+        renderGrid();
+        showNotif(`Started from FantasyCalc: ${BL.players.length} players`);
+      }
+    } catch (e) {
+      errEl.textContent = e.message; errEl.style.display = 'block';
+    } finally {
+      btn.disabled = !BL.players; blSyncPills();
+    }
+  });
+}
+
+// ── Rename (main list or a list you own) ────────────────────────────────────
+function openRename() {
+  const main = activeSetId === null;
+  const set = main ? null : savedSets.find(x => x.id === activeSetId);
+  if (!main && !activeSetIsOwner) return;
+  document.getElementById('rename-title').textContent = main ? 'Name your main list' : 'Rename list';
+  document.getElementById('rename-input').value = main ? (primaryName || '') : (set?.name || '');
+  document.getElementById('rename-input').placeholder = main ? 'My Rankings' : '';
+  document.getElementById('rename-hint').textContent = main
+    ? 'League Assist shows this name wherever you pick a board: player badges, Scout and the Waivers grid. Leave it empty for “My Rankings”.'
+    : '';
+  document.getElementById('rename-err').style.display = 'none';
+  openModal('rename-modal');
+  setTimeout(() => document.getElementById('rename-input').focus(), 50);
+}
+
+async function submitRename() {
+  const name = document.getElementById('rename-input').value.trim();
+  const errEl = document.getElementById('rename-err');
+  try {
+    if (activeSetId === null) {
+      const d = await api('PUT', '/api/myranks/name', { name });
+      primaryName = d.name || null;
+    } else {
+      if (!name) throw new Error('A name is required');
+      await api('PATCH', `/api/myranks/sets/${activeSetId}`, { name });
+      const set = savedSets.find(x => x.id === activeSetId);
+      if (set) set.name = name;
+    }
+    document.getElementById('toolbar-title').textContent = activeSetId === null ? primaryLabel() : name;
+    renderSetsDropdown();
+    closeModal('rename-modal');
+    showNotif('Renamed');
+  } catch (e) {
+    errEl.textContent = e.message; errEl.style.display = 'block';
+  }
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 async function boot() {
@@ -1923,6 +2223,11 @@ async function boot() {
   });
 
   setupImportModal();
+  setupBaselineModal();
+  document.getElementById('baseline-btn').addEventListener('click', openBaseline);
+  document.getElementById('rename-btn').addEventListener('click', openRename);
+  document.getElementById('rename-confirm').addEventListener('click', submitRename);
+  document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') submitRename(); });
 }
 
 // Expose globals needed by inline onclick handlers
@@ -1942,6 +2247,7 @@ window.vrBuildTable       = vrBuildTable;
 window.vrTogglePos        = vrTogglePos;
 window.vrRenderTable      = vrRenderTable;
 window.vrSort             = vrSort;
+window.openBaseline       = openBaseline;
 
 boot();
 

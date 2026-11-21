@@ -59,18 +59,20 @@ async function handleGetData(request, env, cors) {
     if (!share) return err('Not authorized', 403, cors);
   }
 
-  const [rankingsRes, picksRes, ownerRow] = await Promise.all([
+  const [rankingsRes, picksRes, ownerRow, metaRow] = await Promise.all([
     env.DB.prepare('SELECT player_name, team, position, tier FROM user_rankings WHERE user_id = ? ORDER BY tier, position, player_name').bind(targetId).all(),
     env.DB.prepare('SELECT pick_name, tier FROM user_tier_picks WHERE user_id = ? ORDER BY tier, pick_name').bind(targetId).all(),
     targetId !== user.user_id
       ? env.DB.prepare('SELECT name FROM users WHERE id = ?').bind(targetId).first()
       : Promise.resolve(null),
+    env.DB.prepare('SELECT name FROM user_rankings_meta WHERE user_id = ?').bind(targetId).first().catch(() => null),
   ]);
 
   return json({
     rankings:   rankingsRes.results,
     picks:      picksRes.results,
     owner_name: ownerRow?.name ?? null,
+    name:       metaRow?.name || null,   // the main list's own name; null → "My Rankings"
   }, 200, cors);
 }
 
@@ -106,6 +108,41 @@ async function handleImport(request, env, cors) {
   }
 
   return json({ ok: true, imported: players.length }, 200, cors);
+}
+
+// PUT /api/myranks/name {name} — the main list's name (user_rankings_meta).
+// Empty clears it back to the default "My Rankings".
+const LIST_NAME_MAX = 80;
+async function handleSetPrimaryName(request, env, cors) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON', 400, cors); }
+  const name = String(body?.name ?? '').trim().slice(0, LIST_NAME_MAX);
+  if (!name) {
+    await env.DB.prepare('DELETE FROM user_rankings_meta WHERE user_id = ?').bind(user.user_id).run();
+  } else {
+    await env.DB.prepare(
+      `INSERT INTO user_rankings_meta (user_id, name, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at`
+    ).bind(user.user_id, name, Date.now()).run();
+  }
+  return json({ ok: true, name: name || null }, 200, cors);
+}
+
+// PATCH /api/myranks/sets/:id {name} — rename a named list you own.
+async function handleRenameSet(request, env, cors, setId) {
+  const user = await getAuthUser(request, env);
+  if (!user) return err('Not authenticated', 401, cors);
+  let body;
+  try { body = await request.json(); } catch { return err('Invalid JSON', 400, cors); }
+  const name = String(body?.name ?? '').trim().slice(0, LIST_NAME_MAX);
+  if (!name) return err('A name is required', 400, cors);
+  const res = await env.DB.prepare(
+    'UPDATE named_ranking_sets SET name = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?'
+  ).bind(name, Date.now(), setId, user.user_id).run();
+  if (!res.meta?.changes) return err('Set not found', 404, cors);
+  return json({ ok: true, name }, 200, cors);
 }
 
 async function handleDeleteTier(request, env, cors) {
@@ -231,9 +268,10 @@ async function handleListSets(request, env, cors) {
        GROUP BY s.id ORDER BY s.updated_at DESC`
     ).bind(user.user_id).all(),
     env.DB.prepare(
-      `SELECT ur.owner_user_id, u.name AS owner_name, COUNT(rk.player_name) AS player_count
+      `SELECT ur.owner_user_id, u.name AS owner_name, m.name AS list_name, COUNT(rk.player_name) AS player_count
        FROM user_rankings_shares ur
        JOIN users u ON u.id = ur.owner_user_id
+       LEFT JOIN user_rankings_meta m ON m.user_id = ur.owner_user_id
        LEFT JOIN user_rankings rk ON rk.user_id = ur.owner_user_id
        WHERE ur.shared_with_user_id = ?
        GROUP BY ur.owner_user_id`
@@ -242,7 +280,8 @@ async function handleListSets(request, env, cors) {
 
   const primaryEntries = sharedPrimaryRes.results.map(r => ({
     id:           `primary:${r.owner_user_id}`,
-    name:         r.owner_name ? `${r.owner_name}'s Rankings` : 'Shared Rankings',
+    // The owner's name for their main list when they've given it one
+    name:         r.list_name || (r.owner_name ? `${r.owner_name}'s Rankings` : 'Shared Rankings'),
     owner_name:   r.owner_name,
     player_count: r.player_count,
     is_primary:   true,
@@ -534,15 +573,25 @@ async function handleGetPlayers(env, cors) {
   return jsonRes(body, cors);
 }
 
-async function handleGetFC(env, cors) {
-  const cached = await env.SLEEPER_KV.get(FC_KEY, 'text');
+// GET /api/myranks/fc[?fmt=dynasty|redraft&qbs=1|2] — no params is the dynasty
+// superflex list the board's market ranks use; the params pick the baseline a new
+// board can start from ("Start from FantasyCalc"). Each variant cached separately.
+async function handleGetFC(env, cors, url) {
+  const fmt = url?.searchParams.get('fmt') === 'redraft' ? 'redraft' : 'dynasty';
+  const qbs = url?.searchParams.get('qbs') === '1' ? 1 : 2;
+  const isDefault = fmt === 'dynasty' && qbs === 2;
+  const key = isDefault ? FC_KEY : `${FC_KEY}_${fmt}_${qbs}qb`;
+  const src = isDefault ? FC_URL
+    : `https://api.fantasycalc.com/values/current?isDynasty=${fmt === 'dynasty'}&numQbs=${qbs}&numTeams=12&ppr=1&includePickValues=false`;
+
+  const cached = await env.SLEEPER_KV.get(key, 'text');
   if (cached) return jsonRes(cached, cors);
 
-  const upstream = await fetch(FC_URL, { headers: { 'User-Agent': 'myranks/1.0' } });
+  const upstream = await fetch(src, { headers: { 'User-Agent': 'myranks/1.0' } });
   if (!upstream.ok) return err('FantasyCalc upstream error', 502, cors);
 
   const body = await upstream.text();
-  await env.SLEEPER_KV.put(FC_KEY, body, { expirationTtl: FC_TTL });
+  await env.SLEEPER_KV.put(key, body, { expirationTtl: FC_TTL });
   return jsonRes(body, cors);
 }
 
@@ -574,7 +623,8 @@ export default {
     if (path === '/api/myranks/add-player' && method === 'POST')   return handleAddPlayer(request, env, cors);
     if (path === '/api/myranks/pick'       && method === 'PATCH')  return handlePatchPick(request, env, cors);
     if (path === '/api/myranks/players'    && method === 'GET')    return handleGetPlayers(env, cors);
-    if (path === '/api/myranks/fc'         && method === 'GET')    return handleGetFC(env, cors);
+    if (path === '/api/myranks/fc'         && method === 'GET')    return handleGetFC(env, cors, url);
+    if (path === '/api/myranks/name'       && method === 'PUT')    return handleSetPrimaryName(request, env, cors);
 
     // Primary rankings sharing
     if (path === '/api/myranks/shares' && method === 'GET')  return handleListPrimaryShares(request, env, cors);
@@ -590,6 +640,7 @@ export default {
       const setId = parseInt(setMatch[1], 10);
       if (setMatch[2] === '/data' && method === 'GET') return handleGetSetData(request, env, cors, setId);
       if (!setMatch[2] && method === 'PUT')            return handleOverwriteSet(request, env, cors, setId);
+      if (!setMatch[2] && method === 'PATCH')          return handleRenameSet(request, env, cors, setId);
       if (!setMatch[2] && method === 'DELETE')         return handleDeleteSet(request, env, cors, setId);
     }
     const sharesMatch = path.match(/^\/api\/myranks\/sets\/(\d+)\/shares(?:\/(.+))?$/);
